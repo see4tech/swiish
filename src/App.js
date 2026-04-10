@@ -1939,17 +1939,17 @@ const [settings, setSettings] = useState({
                    {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                  </button>
                  <button onClick={handleLogout} className="px-3 py-2 md:px-4 md:py-3 rounded-full font-medium text-text-muted dark:text-text-muted-dark bg-card dark:bg-card-dark border border-border dark:border-border-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors whitespace-nowrap text-sm md:text-base">{t('common.logout')}</button>
-                 {!isSuperAdmin && userRole === 'owner' && (
+                 {(isSuperAdmin || userRole === 'owner') && (
                    <button onClick={() => navigate('/settings')} className="px-3 py-2 md:px-4 md:py-3 rounded-full font-medium text-text-secondary dark:text-text-secondary-dark bg-card dark:bg-card-dark border border-border dark:border-border-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors whitespace-nowrap flex items-center gap-2 text-sm md:text-base">
                      <Settings className="w-4 h-4" /> <span className="hidden sm:inline">{t('dashboard.organisationNav')}</span><span className="sm:hidden">{t('dashboard.orgShort')}</span>
                    </button>
                  )}
-                 {!isSuperAdmin && userRole === 'owner' && (
+                 {(isSuperAdmin || userRole === 'owner') && (
                    <button onClick={() => navigate('/users')} className="px-3 py-2 md:px-4 md:py-3 rounded-full font-medium text-text-secondary dark:text-text-secondary-dark bg-card dark:bg-card-dark border border-border dark:border-border-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors whitespace-nowrap flex items-center gap-2 text-sm md:text-base">
                      <Users className="w-4 h-4" /> {t('dashboard.usersNav')}
                    </button>
                  )}
-                 {!isSuperAdmin && isPlatformAdmin && (
+                 {isPlatformAdmin && (
                    <button onClick={() => { setView('platform-admin'); document.title = t("common.platformAdmin"); navigate('/admin'); }} className="px-3 py-2 md:px-4 md:py-3 rounded-full font-medium text-text-secondary dark:text-text-secondary-dark bg-card dark:bg-card-dark border border-border dark:border-border-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors whitespace-nowrap flex items-center gap-2 text-sm md:text-base">
                      <Shield className="w-4 h-4" /> <span className="hidden sm:inline">{t('dashboard.platformAdminNav')}</span><span className="sm:hidden">{t('dashboard.adminNav')}</span>
                    </button>
