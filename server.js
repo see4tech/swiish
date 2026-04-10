@@ -3848,12 +3848,76 @@ app.post('/api/superadmin/invitations', requireAuth, requireSuperAdmin, apiLimit
 });
 
 // ── Google Wallet (Android) ────────────────────────────────────────────────
+
+// Get a short-lived Google OAuth2 access token using service account credentials
+async function getGoogleAccessToken(saEmail, saKey) {
+  const now = Math.floor(Date.now() / 1000);
+  const assertion = jwt.sign({
+    iss: saEmail,
+    sub: saEmail,
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now,
+    exp: now + 3600,
+    scope: 'https://www.googleapis.com/auth/wallet_object.issuer'
+  }, saKey, { algorithm: 'RS256' });
+
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${assertion}`
+  });
+  const data = await res.json();
+  if (!data.access_token) throw new Error(`Google OAuth failed: ${JSON.stringify(data)}`);
+  return data.access_token;
+}
+
+// Auto-create the Generic Pass class if it doesn't exist yet
+let googleWalletClassReady = false;
+async function ensureGoogleWalletClass() {
+  if (googleWalletClassReady) return;
+  const issuerId    = process.env.GOOGLE_WALLET_ISSUER_ID;
+  const classSuffix = process.env.GOOGLE_WALLET_CLASS_SUFFIX || 'business_card';
+  const saEmail     = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  const saKey       = (process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || '').replace(/\\n/g, '\n');
+  if (!issuerId || !saEmail || !saKey) return;
+
+  const classId = `${issuerId}.${classSuffix}`;
+  try {
+    const token = await getGoogleAccessToken(saEmail, saKey);
+    // Check if class already exists
+    const checkRes = await fetch(
+      `https://walletobjects.googleapis.com/walletobjects/v1/genericClass/${encodeURIComponent(classId)}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (checkRes.status === 404) {
+      // Create it — only id is required
+      const createRes = await fetch('https://walletobjects.googleapis.com/walletobjects/v1/genericClass', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: classId })
+      });
+      if (createRes.ok) {
+        console.log(`[Google Wallet] Pass class created: ${classId}`);
+      } else {
+        const err = await createRes.text();
+        console.error(`[Google Wallet] Failed to create pass class: ${err}`);
+        return;
+      }
+    }
+    googleWalletClassReady = true;
+  } catch (e) {
+    console.error('[Google Wallet] ensureGoogleWalletClass error:', e.message);
+  }
+}
+
+// Try to set up the class at startup (non-blocking)
+ensureGoogleWalletClass().catch(() => {});
+
 function buildGoogleWalletUrl(card, cardUrl) {
   const issuerId    = process.env.GOOGLE_WALLET_ISSUER_ID;
   const classSuffix = process.env.GOOGLE_WALLET_CLASS_SUFFIX || 'business_card';
   const saEmail     = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   const saKey       = (process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || '').replace(/\\n/g, '\n');
-
   if (!issuerId || !saEmail || !saKey) return null;
 
   const classId  = `${issuerId}.${classSuffix}`;
@@ -3899,6 +3963,9 @@ function buildGoogleWalletUrl(card, cardUrl) {
 app.get('/api/wallet/google/:identifier', publicReadLimiter, async (req, res, next) => {
   const { identifier } = req.params;
   try {
+    // Ensure pass class exists (fast no-op after first successful setup)
+    await ensureGoogleWalletClass();
+
     // Try short code first, then slug
     let card = await new Promise((resolve, reject) => {
       db.get('SELECT slug, short_code, data FROM cards WHERE short_code = ?', [identifier], (err, row) => {
