@@ -3402,6 +3402,139 @@ app.delete('/api/platform/organisations/:orgId', requireAuth, requirePlatformAdm
   });
 });
 
+// GET settings for a specific organisation (platform admin only)
+app.get('/api/platform/organisations/:orgId/settings', requireAuth, requirePlatformAdmin, apiLimiter, [
+  param('orgId').isUUID().withMessage('Invalid organisation ID')
+], handleValidationErrors, (req, res, next) => {
+  const { orgId } = req.params;
+
+  db.get("SELECT id FROM organisations WHERE id = ?", [orgId], (err, org) => {
+    if (err) return next(err);
+    if (!org) return res.status(404).json({ error: 'Organisation not found' });
+
+    db.all("SELECT key, value FROM organisation_settings WHERE organisation_id = ?", [orgId], (err, rows) => {
+      if (err) return next(err);
+
+      const settings = {};
+      rows.forEach(row => {
+        try {
+          if (row.key === 'theme_colors') {
+            settings[row.key] = JSON.parse(row.value);
+          } else if (row.key.startsWith('allow_')) {
+            settings[row.key] = row.value === 'true';
+          } else {
+            settings[row.key] = row.value;
+          }
+        } catch (e) { /* skip unparseable */ }
+      });
+
+      // Defaults
+      if (!settings.default_organisation) settings.default_organisation = 'My Organisation';
+      if (!settings.theme_colors || !Array.isArray(settings.theme_colors)) settings.theme_colors = getDefaultThemeColors();
+      if (!settings.theme_variant) settings.theme_variant = 'swiish';
+      if (settings.allow_theme_customisation === undefined) settings.allow_theme_customisation = true;
+      if (settings.allow_image_customisation === undefined) settings.allow_image_customisation = true;
+      if (settings.allow_links_customisation === undefined) settings.allow_links_customisation = true;
+      if (settings.allow_privacy_customisation === undefined) settings.allow_privacy_customisation = true;
+
+      res.json(settings);
+    });
+  });
+});
+
+// PUT settings for a specific organisation (platform admin only)
+app.put('/api/platform/organisations/:orgId/settings', requireAuth, requirePlatformAdmin, apiLimiter, csrfProtection, [
+  param('orgId').isUUID().withMessage('Invalid organisation ID'),
+  body('default_organisation').optional().trim().isLength({ max: 200 }).withMessage('Organisation name too long'),
+  body('theme_colors').optional().isArray().withMessage('Theme colors must be an array'),
+  body('theme_colors.*.name').optional().trim().isLength({ max: 50 }).withMessage('Color name too long'),
+  body('theme_colors.*.gradientStyle').optional().trim().isLength({ max: 500 }).withMessage('Gradient style too long'),
+  body('theme_colors.*.buttonStyle').optional().trim().isLength({ max: 50 }).withMessage('Button style too long'),
+  body('theme_colors.*.linkStyle').optional().trim().isLength({ max: 50 }).withMessage('Link style too long'),
+  body('theme_colors.*.textStyle').optional().trim().isLength({ max: 50 }).withMessage('Text style too long'),
+  body('theme_colors.*.colorType').optional().isIn(['standard', 'custom']).withMessage('Invalid color type'),
+  body('theme_colors.*.hexBase').optional().custom((value) => {
+    if (value === null || value === undefined || value === '') return true;
+    return /^#[0-9A-Fa-f]{6}$/.test(value);
+  }).withMessage('Invalid hex base color'),
+  body('theme_colors.*.hexSecondary').optional().custom((value) => {
+    if (value === null || value === undefined || value === '') return true;
+    return /^#[0-9A-Fa-f]{6}$/.test(value);
+  }).withMessage('Invalid hex secondary color'),
+  body('theme_colors.*.baseColor').optional().trim().isLength({ max: 50 }).withMessage('Base color too long'),
+  body('theme_variant').optional().trim().isLength({ max: 50 }).withMessage('Theme variant too long'),
+  body('allow_theme_customisation').optional().isBoolean().withMessage('Must be boolean'),
+  body('allow_image_customisation').optional().isBoolean().withMessage('Must be boolean'),
+  body('allow_links_customisation').optional().isBoolean().withMessage('Must be boolean'),
+  body('allow_privacy_customisation').optional().isBoolean().withMessage('Must be boolean')
+], handleValidationErrors, (req, res, next) => {
+  const { orgId } = req.params;
+
+  db.get("SELECT id FROM organisations WHERE id = ?", [orgId], (err, org) => {
+    if (err) return next(err);
+    if (!org) return res.status(404).json({ error: 'Organisation not found' });
+
+    const {
+      default_organisation, theme_colors, theme_variant,
+      allow_theme_customisation, allow_image_customisation,
+      allow_links_customisation, allow_privacy_customisation
+    } = req.body;
+
+    const upsert = (key, value) => new Promise((resolve, reject) => {
+      db.run(
+        "INSERT INTO organisation_settings (organisation_id, key, value, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(organisation_id, key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP",
+        [orgId, key, value],
+        (err) => err ? reject(err) : resolve()
+      );
+    });
+
+    const promises = [];
+
+    if (default_organisation !== undefined) {
+      promises.push(upsert('default_organisation', default_organisation.trim().substring(0, 200)));
+    }
+
+    if (theme_colors !== undefined && Array.isArray(theme_colors)) {
+      const sanitized = theme_colors.map(c => ({
+        name: (c.name || '').trim().substring(0, 50),
+        gradient: c.gradient ? (c.gradient || '').trim().substring(0, 200) : null,
+        button: c.button ? (c.button || '').trim().substring(0, 200) : null,
+        link: c.link ? (c.link || '').trim().substring(0, 200) : null,
+        text: c.text ? (c.text || '').trim().substring(0, 200) : null,
+        gradientStyle: c.gradientStyle || null,
+        buttonStyle: c.buttonStyle || null,
+        linkStyle: c.linkStyle || null,
+        textStyle: c.textStyle || null,
+        colorType: c.colorType || null,
+        hexBase: c.hexBase || null,
+        hexSecondary: c.hexSecondary || null,
+        baseColor: c.baseColor || null,
+        secondaryColor: c.secondaryColor || null,
+        shade: c.shade || null
+      }));
+      promises.push(upsert('theme_colors', JSON.stringify(sanitized)));
+    }
+
+    if (theme_variant !== undefined) {
+      promises.push(upsert('theme_variant', String(theme_variant).trim().substring(0, 50)));
+    }
+
+    const saveToggle = (key, value) => {
+      if (value !== undefined && typeof value === 'boolean') {
+        promises.push(upsert(key, value ? 'true' : 'false'));
+      }
+    };
+    saveToggle('allow_theme_customisation', allow_theme_customisation);
+    saveToggle('allow_image_customisation', allow_image_customisation);
+    saveToggle('allow_links_customisation', allow_links_customisation);
+    saveToggle('allow_privacy_customisation', allow_privacy_customisation);
+
+    Promise.all(promises)
+      .then(() => res.json({ success: true }))
+      .catch((err) => next(err));
+  });
+});
+
 // Error handling middleware (must be last)
 app.use(errorHandler);
 
