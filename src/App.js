@@ -1980,7 +1980,7 @@ const [settings, setSettings] = useState({
             <div className="flex flex-wrap justify-between items-center mb-8 gap-4 relative z-10">
                <div>
                  <h1 className="text-2xl md:text-3xl font-bold text-text-primary dark:text-text-primary-dark">{t('dashboard.peopleHeading')}</h1>
-                 <p className="text-sm md:text-base text-text-muted dark:text-text-muted-dark">{t('dashboard.managePeople')}</p>
+                 <p className="text-sm md:text-base text-text-muted dark:text-text-muted-dark">{userRole === 'member' ? t('dashboard.editYourCard') : t('dashboard.managePeople')}</p>
                </div>
                <div className="flex flex-wrap gap-2 md:gap-3 w-full md:w-auto">
                  <LanguageSelector csrfToken={csrfToken} />
@@ -2004,7 +2004,7 @@ const [settings, setSettings] = useState({
                    </button>
                  )}
                  <button onClick={handleCreateNew} className="bg-action dark:bg-action-dark text-white px-4 py-2 md:px-6 md:py-3 rounded-full font-bold flex items-center gap-2 hover:bg-action-hover dark:hover:bg-action-hover-dark transition-all whitespace-nowrap text-sm md:text-base">
-                   <Plus className="w-4 h-4 md:w-5 md:h-5" /> {t('dashboard.newPerson')}
+                   <Plus className="w-4 h-4 md:w-5 md:h-5" /> {userRole === 'member' ? t('dashboard.createCard') : t('dashboard.newPerson')}
                  </button>
                </div>
             </div>
@@ -2018,11 +2018,67 @@ const [settings, setSettings] = useState({
               />
             ) : null}
             {!isSuperAdmin && <div className="columns-1 md:columns-2 lg:columns-3 gap-6">
+              {userRole === 'member' ? (
+                /* Member flat view — each card shown individually, no user-group wrapper */
+                <>
+                  {cardList.filter(c => c.slug).map(card => (
+                    <div key={card.slug} className="bg-card dark:bg-card-dark rounded-card shadow-sm border border-border-subtle dark:border-border-dark hover:shadow-md transition-shadow p-[15px] break-inside-avoid mb-6" style={{ aspectRatio: '1.586 / 1' }}>
+                      <div className="w-full h-full flex flex-col">
+                        <div className="flex-1 flex flex-row items-start gap-3 mb-3 relative">
+                          <div className="w-20 h-20 rounded-full bg-surface dark:bg-surface-dark overflow-hidden border-thick border-border-subtle dark:border-border-dark flex-shrink-0">
+                            {card.avatar ? <img src={card.avatar} className="w-full h-full object-cover" alt="avatar" /> : <User className="w-full h-full p-5 text-text-muted-subtle dark:text-text-muted-dark" />}
+                          </div>
+                          <button onClick={(e) => { e.stopPropagation(); handleDelete(card.slug); }} className="absolute top-0 right-0 p-2 text-text-muted-subtle dark:text-text-muted-dark hover:text-error-text dark:hover:text-error-text-dark hover:bg-error-bg dark:hover:bg-error-bg-dark rounded-full transition-colors">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                          <div className="flex-1 flex flex-col text-left min-w-0">
+                            <h3 className="font-bold text-text-primary dark:text-text-primary-dark text-base mb-0.5 truncate">{card.name}</h3>
+                            {card.title && <p className="text-text-muted dark:text-text-muted-dark text-xs mb-1 truncate">{card.title}</p>}
+                            <div className="space-y-0.5">
+                              {card.shortCode && (
+                                <div className="text-[10px] text-text-muted-subtle dark:text-text-muted-dark font-mono truncate" title={t("card.shortCodeUrl")}>
+                                  <span className="text-text-muted-subtle dark:text-text-muted-dark">{t('card.shortLabel')}:</span> /{card.shortCode}
+                                </div>
+                              )}
+                              {card.orgSlug && card.slug ? (
+                                <div className="text-[10px] text-text-muted-subtle dark:text-text-muted-dark font-mono truncate">
+                                  <span className="text-text-muted-subtle dark:text-text-muted-dark">{t('card.urlLabel')}:</span> /{card.orgSlug}/{card.slug}
+                                </div>
+                              ) : card.slug ? (
+                                <div className="text-[10px] text-text-muted-subtle dark:text-text-muted-dark font-mono truncate">
+                                  <span className="text-text-muted-subtle dark:text-text-muted-dark">{t('card.urlLabel')}:</span> /{card.slug}
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-center gap-2 w-full mt-auto">
+                          <a
+                            href={card.shortCode ? `/${card.shortCode}` : (card.orgSlug && card.slug ? `/${card.orgSlug}/${card.slug}` : `/${card.slug}`)}
+                            target="_blank" rel="noreferrer"
+                            className="flex-1 py-2 text-xs font-medium text-confirm-text dark:text-confirm-text-dark bg-confirm dark:bg-confirm-dark rounded-button hover:bg-confirm-hover dark:hover:bg-confirm-hover-dark flex items-center justify-center gap-1"
+                          >
+                            <ExternalLink className="w-3 h-3"/> {t('common.view')}
+                          </a>
+                          <button onClick={() => handleEdit(card.slug)} className="flex-1 py-2 text-xs font-medium text-confirm-text dark:text-confirm-text-dark bg-confirm dark:bg-confirm-dark rounded-button hover:bg-confirm-hover dark:hover:bg-confirm-hover-dark flex items-center justify-center gap-1"><Edit3 className="w-3 h-3"/> {t('common.edit')}</button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {cardList.filter(c => c.slug).length === 0 && (
+                    <div className="col-span-full py-20 text-center text-text-muted-subtle dark:text-text-muted-dark bg-card dark:bg-card-dark rounded-card border-thick border-dashed border-border dark:border-border-dark">
+                      {t('dashboard.noPeopleYet')}
+                    </div>
+                  )}
+                </>
+              ) : (
+              /* Owner/admin grouped view */
+              <>
               {groupCardsByUser(cardList).map(user => {
                 // Filter out entries without slugs (these represent users without cards)
                 const userCards = user.cards.filter(c => c.slug);
                 const userKey = user.userId || user.userEmail || 'unknown';
-                
+
                 return (
                   <div key={userKey} className="bg-card dark:bg-card-dark rounded-card shadow-sm border border-border-subtle dark:border-border-dark hover:shadow-md transition-shadow flex flex-col p-[15px] h-fit break-inside-avoid mb-6">
                     {/* User Info Box (top) - only shown for owners */}
@@ -2160,6 +2216,8 @@ const [settings, setSettings] = useState({
                  <div className="col-span-full py-20 text-center text-text-muted-subtle dark:text-text-muted-dark bg-card dark:bg-card-dark rounded-card border-thick border-dashed border-border dark:border-border-dark">
                    {t('dashboard.noPeopleYet')}
                  </div>
+              )}
+              </>
               )}
           </div>}
           </div>

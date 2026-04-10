@@ -91,6 +91,7 @@
   "dashboard": {
     "peopleHeading": "People",
     "managePeople": "Manage your people",
+    "editYourCard": "Edit your card",
     "newPerson": "New Person",
     "organisationNav": "Organisation",
     "orgShort": "Org",
