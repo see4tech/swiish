@@ -3185,11 +3185,32 @@ function CardDisplay({ data, settings, darkMode, toggleDarkMode, showAlert }) {
             return null;
           })()}
           {(() => {
+            // Add to Google Wallet button — Android only
+            const isAndroid = /android/i.test(navigator.userAgent);
+            if (!isAndroid) return null;
+            const pathParts = window.location.pathname.substring(1).split('/').filter(p => p);
+            const isShortCodeRoute = pathParts.length === 1 && /^[a-zA-Z0-9]{7}$/.test(pathParts[0]);
+            const walletIdentifier = data._shortCode || (isShortCodeRoute ? pathParts[0] : pathParts[pathParts.length - 1]);
+            if (!walletIdentifier) return null;
+            return (
+              <a
+                href={`/api/wallet/google/${walletIdentifier}`}
+                className="col-span-2 flex items-center justify-center gap-2 py-3.5 rounded-full font-bold text-white shadow-lg transition-transform active:scale-[0.98]"
+                style={{ backgroundColor: '#1a73e8' }}
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
+                </svg>
+                {t('card.addToGoogleWallet')}
+              </a>
+            );
+          })()}
+          {(() => {
             const requireInteraction = privacy.requireInteraction ?? true;
             const useObfuscation = privacy.clientSideObfuscation ?? false;
             const hasEmail = contact.email;
             const hasPhone = contact.phone;
-            
+
             // If interaction required and not yet revealed, show reveal button
             if (requireInteraction && !contactRevealed && (hasEmail || hasPhone)) {
               return (

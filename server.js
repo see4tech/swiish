@@ -3847,6 +3847,87 @@ app.post('/api/superadmin/invitations', requireAuth, requireSuperAdmin, apiLimit
   }
 });
 
+// ── Google Wallet (Android) ────────────────────────────────────────────────
+function buildGoogleWalletUrl(card, cardUrl) {
+  const issuerId    = process.env.GOOGLE_WALLET_ISSUER_ID;
+  const classSuffix = process.env.GOOGLE_WALLET_CLASS_SUFFIX || 'business_card';
+  const saEmail     = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  const saKey       = (process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || '').replace(/\\n/g, '\n');
+
+  if (!issuerId || !saEmail || !saKey) return null;
+
+  const classId  = `${issuerId}.${classSuffix}`;
+  const objectId = `${issuerId}.${card.slug}_${Date.now()}`;
+
+  const personal = card.data?.personal || {};
+  const contact  = card.data?.contact  || {};
+  const name = [personal.firstName, personal.lastName].filter(Boolean).join(' ') || card.slug;
+
+  const textModules = [];
+  if (personal.title)   textModules.push({ id: 'title',   header: 'Title',   body: personal.title });
+  if (personal.company) textModules.push({ id: 'company', header: 'Company', body: personal.company });
+  if (contact.email)    textModules.push({ id: 'email',   header: 'Email',   body: contact.email });
+  if (contact.phone)    textModules.push({ id: 'phone',   header: 'Phone',   body: contact.phone });
+
+  const passObject = {
+    id: objectId,
+    classId,
+    genericType: 'GENERIC_TYPE_UNSPECIFIED',
+    hexBackgroundColor: '#4f46e5',
+    ...(card.data?.images?.avatar ? { logo: { sourceUri: { uri: card.data.images.avatar } } } : {}),
+    cardTitle: { defaultValue: { language: 'en-US', value: 'Digital Business Card' } },
+    header:    { defaultValue: { language: 'en-US', value: name } },
+    subheader: { defaultValue: { language: 'en-US', value: personal.title || personal.company || '' } },
+    ...(textModules.length ? { textModulesData: textModules } : {}),
+    linksModuleData: { uris: [{ uri: cardUrl, description: 'View Digital Card', id: 'card_url' }] },
+    barcode: { type: 'QR_CODE', value: cardUrl }
+  };
+
+  const jwtPayload = {
+    iss: saEmail,
+    aud: 'google',
+    typ: 'savetowallet',
+    iat: Math.floor(Date.now() / 1000),
+    origins: [process.env.APP_URL || ''],
+    payload: { genericObjects: [passObject] }
+  };
+
+  const token = jwt.sign(jwtPayload, saKey, { algorithm: 'RS256' });
+  return `https://pay.google.com/gp/v/save/${token}`;
+}
+
+app.get('/api/wallet/google/:identifier', publicReadLimiter, async (req, res, next) => {
+  const { identifier } = req.params;
+  try {
+    // Try short code first, then slug
+    let card = await new Promise((resolve, reject) => {
+      db.get('SELECT slug, short_code, data FROM cards WHERE short_code = ?', [identifier], (err, row) => {
+        if (err) reject(err); else resolve(row);
+      });
+    });
+    if (!card) {
+      card = await new Promise((resolve, reject) => {
+        db.get('SELECT slug, short_code, data FROM cards WHERE slug = ?', [identifier], (err, row) => {
+          if (err) reject(err); else resolve(row);
+        });
+      });
+    }
+    if (!card) return res.status(404).json({ error: 'Card not found' });
+
+    card.data = typeof card.data === 'string' ? JSON.parse(card.data) : card.data;
+    const host    = `${req.protocol}://${req.get('host')}`;
+    const cardUrl = card.short_code ? `${host}/${card.short_code}` : `${host}/${card.slug}`;
+
+    const walletUrl = buildGoogleWalletUrl(card, cardUrl);
+    if (!walletUrl) {
+      return res.status(503).json({ error: 'Google Wallet not configured on this server' });
+    }
+    res.redirect(302, walletUrl);
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Error handling middleware (must be last)
 app.use(errorHandler);
 
