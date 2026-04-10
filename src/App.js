@@ -1068,9 +1068,8 @@ const [settings, setSettings] = useState({
                 if (authResult.cardList.length === 0) {
                   setView('member-empty');
                 } else {
-                  // Navigate to first card editor (explicit navigation)
-                  const firstCard = authResult.cardList[0];
-                  navigate(`/people/edit/${firstCard.slug}`);
+                  // Member has cards — show dashboard so they can view/edit
+                  setView('admin-dashboard');
                 }
               } else {
                 // Owner - show dashboard
