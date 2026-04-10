@@ -16,6 +16,7 @@ const csrf = require('csurf');
 const QRCode = require('qrcode');
 const bcrypt = require('bcrypt');
 const nodemailer = require('nodemailer');
+const { t: serverT } = require('./lib/i18n');
 const util = require('util');
 const { execSync } = require('child_process');
 
@@ -405,7 +406,7 @@ app.use(cookieParser());
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5, // 5 attempts per window
-  message: 'Too many login attempts, please try again later.',
+  message: 'rateLimiting.tooManyLoginAttempts',
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -420,7 +421,7 @@ const apiLimiter = rateLimit({
 const uploadLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 10, // 10 uploads per hour
-  message: 'Too many upload attempts, please try again later.',
+  message: 'rateLimiting.tooManyUploadAttempts',
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -429,7 +430,7 @@ const uploadLimiter = rateLimit({
 const publicReadLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 300, // More lenient for public read operations
-  message: 'Too many requests from this IP, please try again later.',
+  message: 'rateLimiting.tooManyRequests',
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -437,7 +438,7 @@ const publicReadLimiter = rateLimit({
 const cardReadLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 200, // Moderate limit for card reads
-  message: 'Too many requests from this IP, please try again later.',
+  message: 'rateLimiting.tooManyRequests',
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -488,7 +489,7 @@ const requireAuth = (req, res, next) => {
       [DEMO_USER_ID],
       (err, row) => {
         if (err || !row) {
-          return res.status(401).json({ error: 'Demo user not found' });
+          return res.status(401).json({ error: 'errors.demoUserNotFound' });
         }
         req.user = {
           id: row.id,
@@ -506,7 +507,7 @@ const requireAuth = (req, res, next) => {
   const token = req.cookies.authToken || (req.headers.authorization && req.headers.authorization.replace('Bearer ', ''));
 
   if (!token) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: 'errors.unauthorized' });
   }
 
   try {
@@ -528,11 +529,11 @@ const requireAuth = (req, res, next) => {
         role: 'admin'
       };
     } else {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: 'errors.unauthorized' });
     }
     next();
   } catch (err) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: 'errors.unauthorized' });
   }
 };
 
@@ -540,11 +541,11 @@ const requireAuth = (req, res, next) => {
 const requireRole = (...allowedRoles) => {
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: 'errors.unauthorized' });
     }
     
     if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ error: 'Forbidden: Insufficient permissions' });
+      return res.status(403).json({ error: 'errors.unauthorized' });
     }
     
     next();
@@ -555,7 +556,7 @@ const requireRole = (...allowedRoles) => {
 // Verifies against the DB so that users promoted after their last login don't need to re-login.
 const requirePlatformAdmin = (req, res, next) => {
   if (!req.user || !req.user.id) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: 'errors.unauthorized' });
   }
   // Fast path: JWT already carries the claim
   if (req.user.isPlatformAdmin) {
@@ -565,7 +566,7 @@ const requirePlatformAdmin = (req, res, next) => {
   db.get('SELECT is_platform_admin FROM users WHERE id = ?', [req.user.id], (err, row) => {
     if (err) return next(err);
     if (!row || row.is_platform_admin !== 1) {
-      return res.status(403).json({ error: 'Forbidden: Platform admin access required' });
+      return res.status(403).json({ error: 'errors.unauthorized' });
     }
     req.user.isPlatformAdmin = true; // update in-request cache
     next();
@@ -579,20 +580,20 @@ const errorHandler = (err, req, res, next) => {
   // Don't leak error details in production
   if (NODE_ENV === 'production') {
     if (err.code === 'EBADCSRFTOKEN') {
-      return res.status(403).json({ error: 'Invalid or missing CSRF token. Please refresh the page and try again.' });
+      return res.status(403).json({ error: 'errors.invalidOrMissingCSRFToken' });
     }
     if (err.name === 'ValidationError') {
-      return res.status(400).json({ error: 'Invalid input' });
+      return res.status(400).json({ error: 'errors.invalidInput' });
     }
     if (err.name === 'UnauthorizedError' || err.name === 'JsonWebTokenError') {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: 'errors.unauthorized' });
     }
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: 'errors.internalServerError' });
   }
   
   // In development, show more details
   res.status(err.status || 500).json({ 
-    error: err.message || 'Internal server error',
+    error: err.message || 'errors.internalServerError',
     stack: err.stack 
   });
 };
@@ -720,7 +721,7 @@ app.post('/api/setup/initialize', apiLimiter, csrfProtection, [
   db.get("SELECT COUNT(*) as count FROM users", [], async (err, row) => {
     if (err) return next(err);
     if (row.count > 0) {
-      return res.status(403).json({ error: 'Setup already completed' });
+      return res.status(403).json({ error: 'errors.setupAlreadyCompleted' });
     }
 
     const { organisationName, adminEmail, adminPassword } = req.body;
@@ -777,13 +778,13 @@ app.post('/api/login', loginLimiter, [
       
       // If no user found, return error
       if (!user) {
-        return res.status(401).json({ error: 'Invalid email or password' });
+        return res.status(401).json({ error: 'errors.invalidEmailOrPassword' });
       }
 
       // Verify password
       const passwordMatch = await bcrypt.compare(password, user.password_hash);
       if (!passwordMatch) {
-        return res.status(401).json({ error: 'Invalid email or password' });
+        return res.status(401).json({ error: 'errors.invalidEmailOrPassword' });
       }
       
       // Generate JWT token
@@ -823,7 +824,7 @@ app.post('/api/logout', (req, res) => {
 app.post('/api/upload', requireAuth, uploadLimiter, csrfProtection, upload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
+      return res.status(400).json({ error: 'errors.noFileUploaded' });
     }
 
     // Validate file type by reading actual file content
@@ -841,7 +842,7 @@ app.post('/api/upload', requireAuth, uploadLimiter, csrfProtection, upload.singl
         // Log but don't fail the request if cleanup fails
         log('Failed to delete invalid file:', unlinkErr.message);
       }
-      return res.status(400).json({ error: 'Invalid file type. Only images are allowed.' });
+      return res.status(400).json({ error: 'errors.invalidFileType' });
     }
 
     // Verify extension matches MIME type
@@ -861,7 +862,7 @@ app.post('/api/upload', requireAuth, uploadLimiter, csrfProtection, upload.singl
         // Log but don't fail the request if cleanup fails
         log('Failed to delete invalid file:', unlinkErr.message);
       }
-      return res.status(400).json({ error: 'File extension does not match file type' });
+      return res.status(400).json({ error: 'errors.fileExtensionMismatch' });
     }
 
     // Return the public URL
@@ -884,24 +885,58 @@ app.post('/api/upload', requireAuth, uploadLimiter, csrfProtection, upload.singl
 // GET Current User Info
 app.get('/api/auth/me', requireAuth, apiLimiter, (req, res, next) => {
   if (!req.user.id) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: 'errors.unauthorized' });
   }
-  
+
   db.get("SELECT id, email, organisation_id, role, email_verified, is_platform_admin FROM users WHERE id = ?", [req.user.id], (err, user) => {
     if (err) return next(err);
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: 'errors.userNotFound' });
     }
-    res.json({
-      id: user.id,
-      email: user.email,
-      organisationId: user.organisation_id,
-      role: user.role,
-      emailVerified: user.email_verified === 1,
-      isPlatformAdmin: user.is_platform_admin === 1
+
+    // Get user language preference
+    db.get("SELECT value FROM user_settings WHERE user_id = ? AND key = 'language'", [user.id], (err2, langRow) => {
+      if (err2) return next(err2);
+
+      // Get org default language
+      db.get("SELECT value FROM organisation_settings WHERE organisation_id = ? AND key = 'default_language'", [user.organisation_id], (err3, orgLangRow) => {
+        if (err3) return next(err3);
+
+        res.json({
+          id: user.id,
+          email: user.email,
+          organisationId: user.organisation_id,
+          role: user.role,
+          emailVerified: user.email_verified === 1,
+          isPlatformAdmin: user.is_platform_admin === 1,
+          language: langRow ? langRow.value : null,
+          orgDefaultLanguage: orgLangRow ? orgLangRow.value : 'en'
+        });
+      });
     });
   });
 });
+
+// User language preference
+app.put('/api/user/language', requireAuth, csrfProtection, apiLimiter,
+  body('language').isIn(['en', 'es']).withMessage('validation.invalidLanguage'),
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: 'errors.invalidInput', details: errors.array() });
+    }
+
+    const { language } = req.body;
+    db.run(
+      "INSERT INTO user_settings (user_id, key, value) VALUES (?, 'language', ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value",
+      [req.user.id, language],
+      function(err) {
+        if (err) return next(err);
+        res.json({ success: true, language });
+      }
+    );
+  }
+);
 
 // Validation schemas
 const slugValidation = param('slug')
@@ -1015,7 +1050,7 @@ const cardDataValidation = [
 // GET All Cards (Admin Dashboard)
 app.get('/api/admin/cards', requireAuth, apiLimiter, (req, res, next) => {
   if (!req.user.id) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: 'errors.unauthorized' });
   }
   
   // Owners see all cards in organisation, members see only their own
@@ -1283,7 +1318,7 @@ app.get('/api/admin/cards', requireAuth, apiLimiter, (req, res, next) => {
 const shortCodeLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // 100 requests per window
-  message: 'Too many short code lookup attempts',
+  message: 'rateLimiting.tooManyShortCodeLookups',
   standardHeaders: true,
   legacyHeaders: false
 });
@@ -1295,12 +1330,12 @@ app.get('/api/cards/short/:shortCode', cardReadLimiter, (req, res, next) => {
   // Validate: exactly 7 alphanumeric characters
   if (!shortCode || shortCode.length !== 7) {
     log(`[API] Short code validation failed: length=${shortCode?.length || 0}`);
-    return res.status(400).json({ error: `Short code must be exactly ${SHORT_CODE_LENGTH} characters` });
+    return res.status(400).json({ error: 'errors.shortCodeInvalidLength' });
   }
   
   if (!new RegExp(`^[a-zA-Z0-9]{${SHORT_CODE_LENGTH}}$`).test(shortCode)) {
     log(`[API] Short code validation failed: invalid format`);
-    return res.status(400).json({ error: 'Short code must contain only letters and numbers' });
+    return res.status(400).json({ error: 'errors.shortCodeInvalidFormat' });
   }
   
   log(`[API] Short code validated, querying database...`);
@@ -1319,7 +1354,7 @@ app.get('/api/cards/short/:shortCode', cardReadLimiter, (req, res, next) => {
     }
     if (!row) {
       log(`[API] Short code not found in database: ${shortCode}`);
-      return res.status(404).json({ error: "Card not found" });
+      return res.status(404).json({ error: 'errors.cardNotFound' });
     }
     try {
       const cardData = JSON.parse(row.data);
@@ -1355,7 +1390,7 @@ app.get('/api/cards/:orgSlug/:cardSlug', cardReadLimiter, [
     }
     if (!org) {
       log(`[API] Organization not found: ${orgSlug}`);
-      return res.status(404).json({ error: "Card not found" }); // Generic 404, no info leakage
+      return res.status(404).json({ error: 'errors.cardNotFound' }); // Generic 404, no info leakage
     }
     
     log(`[API] Organization found (id: ${org.id}), querying card...`);
@@ -1373,7 +1408,7 @@ app.get('/api/cards/:orgSlug/:cardSlug', cardReadLimiter, [
       }
       if (!row) {
         log(`[API] Card not found: ${cardSlug} in org ${orgSlug}`);
-        return res.status(404).json({ error: "Card not found" });
+        return res.status(404).json({ error: 'errors.cardNotFound' });
       }
       try {
         const cardData = JSON.parse(row.data);
@@ -1398,7 +1433,7 @@ app.get('/api/cards/:slug', cardReadLimiter, [
   // DEPRECATED: Use /api/cards/:orgSlug/:cardSlug or /api/cards/short/:shortCode instead
   db.get("SELECT data, short_code FROM cards WHERE slug = ? LIMIT 1", [slug], (err, row) => {
     if (err) return next(err);
-    if (!row) return res.status(404).json({ error: "Card not found" });
+    if (!row) return res.status(404).json({ error: 'errors.cardNotFound' });
     try {
       const cardData = JSON.parse(row.data);
       // Include short_code in response for frontend QR generation
@@ -1459,7 +1494,7 @@ app.post('/api/cards/:slug', requireAuth, apiLimiter, csrfProtection, [
 
   // Ensure user is authenticated
   if (!req.user.id || !req.user.organisationId) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: 'errors.unauthorized' });
   }
   
   // Determine target userId for card creation
@@ -1652,10 +1687,10 @@ app.post('/api/cards/:slug', requireAuth, apiLimiter, csrfProtection, [
     db.get("SELECT id, organisation_id FROM users WHERE id = ?", [req.body.userId], (err, targetUser) => {
       if (err) return next(err);
       if (!targetUser) {
-        return res.status(404).json({ error: 'Target user not found' });
+        return res.status(404).json({ error: 'errors.targetUserNotFound' });
       }
       if (targetUser.organisation_id !== req.user.organisationId) {
-        return res.status(403).json({ error: 'Cannot create card for user outside your organization' });
+        return res.status(403).json({ error: 'errors.cannotCreateCardOutsideOrg' });
       }
       // Valid target user, proceed with card creation
       proceedWithCardSave(req.body.userId);
@@ -1674,12 +1709,12 @@ app.delete('/api/cards/:slug', requireAuth, apiLimiter, csrfProtection, [
   const slug = req.params.slug.toLowerCase();
   // Ensure user is authenticated and can only delete their own cards
   if (!req.user.id) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: 'errors.unauthorized' });
   }
   db.run("DELETE FROM cards WHERE slug = ? AND user_id = ?", [slug, req.user.id], function(err) {
     if (err) return next(err);
     if (this.changes === 0) {
-      return res.status(404).json({ error: 'Card not found' });
+      return res.status(404).json({ error: 'errors.cardNotFound' });
     }
     res.json({ success: true });
   });
@@ -1799,7 +1834,7 @@ app.get('/api/settings', apiLimiter, (req, res, next) => {
 app.get('/api/admin/settings', requireAuth, requireRole('owner'), apiLimiter, (req, res, next) => {
   // Ensure user is authenticated and has organization
   if (!req.user.organisationId) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: 'errors.unauthorized' });
   }
   
   db.all("SELECT key, value FROM organisation_settings WHERE organisation_id = ?", [req.user.organisationId], (err, rows) => {
@@ -1852,7 +1887,10 @@ app.get('/api/admin/settings', requireAuth, requireRole('owner'), apiLimiter, (r
     if (settings.allow_privacy_customisation === undefined) {
       settings.allow_privacy_customisation = true;
     }
-    
+    if (!settings.default_language) {
+      settings.default_language = 'en';
+    }
+
     log('GET /api/admin/settings - Returning settings', {
       organisationId: req.user.organisationId,
       settings: {
@@ -1900,21 +1938,23 @@ app.post('/api/admin/settings', requireAuth, requireRole('owner'), apiLimiter, c
   body('allow_theme_customisation').optional().isBoolean().withMessage('allow_theme_customisation must be a boolean'),
   body('allow_image_customisation').optional().isBoolean().withMessage('allow_image_customisation must be a boolean'),
   body('allow_links_customisation').optional().isBoolean().withMessage('allow_links_customisation must be a boolean'),
-  body('allow_privacy_customisation').optional().isBoolean().withMessage('allow_privacy_customisation must be a boolean')
+  body('allow_privacy_customisation').optional().isBoolean().withMessage('allow_privacy_customisation must be a boolean'),
+  body('default_language').optional().isIn(['en', 'es']).withMessage('validation.invalidLanguage')
 ], handleValidationErrors, (req, res, next) => {
   // Ensure user is authenticated and has organization
   if (!req.user.organisationId) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: 'errors.unauthorized' });
   }
-  
-  const { 
-    default_organisation, 
+
+  const {
+    default_organisation,
     theme_colors,
   theme_variant,
     allow_theme_customisation,
     allow_image_customisation,
     allow_links_customisation,
-    allow_privacy_customisation
+    allow_privacy_customisation,
+    default_language
   } = req.body;
   
   log('POST /api/admin/settings - Received settings update', {
@@ -2018,7 +2058,20 @@ app.post('/api/admin/settings', requireAuth, requireRole('owner'), apiLimiter, c
   saveToggle('allow_image_customisation', allow_image_customisation);
   saveToggle('allow_links_customisation', allow_links_customisation);
   saveToggle('allow_privacy_customisation', allow_privacy_customisation);
-  
+
+  if (default_language !== undefined && ['en', 'es'].includes(default_language)) {
+    promises.push(new Promise((resolve, reject) => {
+      db.run(
+        "INSERT INTO organisation_settings (organisation_id, key, value, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(organisation_id, key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP",
+        [req.user.organisationId, 'default_language', default_language],
+        (err) => {
+          if (err) return reject(err);
+          resolve();
+        }
+      );
+    }));
+  }
+
   // Wait for all database operations to complete before sending response
   Promise.all(promises)
     .then(() => {
@@ -2039,7 +2092,7 @@ app.post('/api/admin/settings', requireAuth, requireRole('owner'), apiLimiter, c
 // GET All Users in Organization
 app.get('/api/admin/users', requireAuth, requireRole('owner'), apiLimiter, (req, res, next) => {
   if (!req.user.organisationId) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: 'errors.unauthorized' });
   }
   
   db.all(
@@ -2059,7 +2112,7 @@ app.post('/api/admin/users', requireAuth, requireRole('owner'), apiLimiter, csrf
   body('role').isIn(['owner', 'member']).withMessage('Role must be owner or member')
 ], handleValidationErrors, async (req, res, next) => {
   if (!req.user.organisationId) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: 'errors.unauthorized' });
   }
   
   const { email, password, role } = req.body;
@@ -2068,7 +2121,7 @@ app.post('/api/admin/users', requireAuth, requireRole('owner'), apiLimiter, csrf
   db.get("SELECT id FROM users WHERE email = ?", [email.toLowerCase()], async (err, existingUser) => {
     if (err) return next(err);
     if (existingUser) {
-      return res.status(400).json({ error: 'User with this email already exists' });
+      return res.status(400).json({ error: 'errors.userAlreadyExists' });
     }
 
     // Check if ACTIVE invitation exists (pending/sent, not expired)
@@ -2079,7 +2132,7 @@ app.post('/api/admin/users', requireAuth, requireRole('owner'), apiLimiter, csrf
         if (err) return next(err);
         if (existingInvitation) {
           return res.status(400).json({
-            error: 'An active invitation already exists for this email. Please wait for the user to accept the invitation or delete it first.',
+            error: 'errors.activeInvitationWaitOrDelete',
             invitationStatus: existingInvitation.status
           });
         }
@@ -2110,7 +2163,7 @@ app.patch('/api/admin/users/:userId', requireAuth, requireRole('owner'), apiLimi
   body('role').isIn(['owner', 'member']).withMessage('Role must be owner or member')
 ], handleValidationErrors, (req, res, next) => {
   if (!req.user.organisationId) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: 'errors.unauthorized' });
   }
   
   const { userId } = req.params;
@@ -2118,14 +2171,14 @@ app.patch('/api/admin/users/:userId', requireAuth, requireRole('owner'), apiLimi
   
   // Cannot change own role
   if (userId === req.user.id) {
-    return res.status(400).json({ error: 'Cannot change your own role' });
+    return res.status(400).json({ error: 'errors.cannotChangeOwnRole' });
   }
   
   // Verify user is in same organization
   db.get("SELECT id, role FROM users WHERE id = ? AND organisation_id = ?", [userId, req.user.organisationId], (err, user) => {
     if (err) return next(err);
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: 'errors.userNotFound' });
     }
     
     // If changing from owner to member, check if this is the last owner
@@ -2133,7 +2186,7 @@ app.patch('/api/admin/users/:userId', requireAuth, requireRole('owner'), apiLimi
       db.get("SELECT COUNT(*) as count FROM users WHERE organisation_id = ? AND role = 'owner'", [req.user.organisationId], (err, ownerCount) => {
         if (err) return next(err);
         if (ownerCount.count === 1) {
-          return res.status(400).json({ error: 'Cannot remove last owner from organization' });
+          return res.status(400).json({ error: 'errors.cannotRemoveLastOwner' });
         }
         
         // Update role
@@ -2157,14 +2210,14 @@ app.delete('/api/admin/users/:userId', requireAuth, requireRole('owner'), apiLim
   param('userId').isUUID().withMessage('Invalid user ID')
 ], handleValidationErrors, async (req, res, next) => {
   if (!req.user.organisationId) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: 'errors.unauthorized' });
   }
 
   const { userId } = req.params;
 
   // Cannot delete yourself
   if (userId === req.user.id) {
-    return res.status(400).json({ error: 'Cannot delete yourself' });
+    return res.status(400).json({ error: 'errors.cannotDeleteYourself' });
   }
 
   try {
@@ -2180,7 +2233,7 @@ app.delete('/api/admin/users/:userId', requireAuth, requireRole('owner'), apiLim
     });
 
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: 'errors.userNotFound' });
     }
 
     // If deleting owner, check if this is the last owner
@@ -2196,7 +2249,7 @@ app.delete('/api/admin/users/:userId', requireAuth, requireRole('owner'), apiLim
       });
 
       if (ownerCount.count === 1) {
-        return res.status(400).json({ error: 'Cannot delete last owner from organization' });
+        return res.status(400).json({ error: 'errors.cannotDeleteLastOwner' });
       }
     }
 
@@ -2265,7 +2318,7 @@ app.post('/api/admin/invitations', requireAuth, requireRole('owner'), apiLimiter
   body('role').isIn(['owner', 'member']).withMessage('Role must be owner or member')
 ], handleValidationErrors, async (req, res, next) => {
   if (!req.user.organisationId) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: 'errors.unauthorized' });
   }
 
   const { email, role } = req.body;
@@ -2281,7 +2334,7 @@ app.post('/api/admin/invitations', requireAuth, requireRole('owner'), apiLimiter
     });
 
     if (existingUser) {
-      return res.status(400).json({ error: 'User with this email already exists' });
+      return res.status(400).json({ error: 'errors.userAlreadyExists' });
     }
 
     // Check if ACTIVE invitation exists (pending/sent, not expired)
@@ -2299,7 +2352,7 @@ app.post('/api/admin/invitations', requireAuth, requireRole('owner'), apiLimiter
 
     if (existingInvitation) {
       return res.status(400).json({
-        error: 'Active invitation already exists for this email',
+        error: 'errors.activeInvitationAlreadyExists',
         status: existingInvitation.status
       });
     }
@@ -2331,6 +2384,14 @@ app.post('/api/admin/invitations', requireAuth, requireRole('owner'), apiLimiter
     });
     const orgName = org ? org.name : 'Organization';
 
+    // Get org default language for email translation
+    const orgLangRow = await new Promise((resolve, reject) => {
+      db.get("SELECT value FROM organisation_settings WHERE organisation_id = ? AND key = 'default_language'", [req.user.organisationId], (err, row) => {
+        if (err) reject(err); else resolve(row);
+      });
+    });
+    const emailLang = (orgLangRow && orgLangRow.value) || 'en';
+
     // Attempt to send email
     let emailStatus = 'sent';
     let emailError = null;
@@ -2338,19 +2399,20 @@ app.post('/api/admin/invitations', requireAuth, requireRole('owner'), apiLimiter
     try {
       if (emailTransporter) {
         const invitationUrl = `${APP_URL}/invite/${token}`;
+        const interpolations = { organizationName: orgName };
         const emailHtml = `
-          <h2>You've been invited to join ${orgName}</h2>
-          <p>You've been invited to join ${orgName} on Swiish. Click the link below to accept the invitation and create your account.</p>
-          <p><a href="${invitationUrl}" style="background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Accept Invitation</a></p>
-          <p>This invitation will expire in 7 days.</p>
-          <p>If you didn't expect this invitation, you can safely ignore this email.</p>
+          <h2>${serverT('email.invitation.heading', emailLang, interpolations)}</h2>
+          <p>${serverT('email.invitation.introText', emailLang, interpolations)}</p>
+          <p><a href="${invitationUrl}" style="background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">${serverT('email.invitation.buttonText', emailLang)}</a></p>
+          <p>${serverT('email.invitation.expiryNote', emailLang)}</p>
+          <p>${serverT('email.invitation.ignoreNote', emailLang)}</p>
         `;
-        const emailText = `You've been invited to join ${orgName} on Swiish. Visit ${invitationUrl} to accept the invitation. This invitation expires in 7 days.`;
+        const emailText = serverT('email.invitation.plainTextIntro', emailLang, { ...interpolations, invitationUrl });
 
         await emailTransporter.sendMail({
           from: SMTP_FROM,
           to: emailLower,
-          subject: `Invitation to join ${orgName} on Swiish`,
+          subject: serverT('email.invitation.subject', emailLang, interpolations),
           text: emailText,
           html: emailHtml
         });
@@ -2409,13 +2471,13 @@ app.get('/api/invitations/:token', publicReadLimiter, [
     (err, invitation) => {
       if (err) return next(err);
       if (!invitation) {
-        return res.status(404).json({ error: 'Invitation not found' });
+        return res.status(404).json({ error: 'errors.invitationNotFound' });
       }
       if (invitation.accepted_at) {
-        return res.status(400).json({ error: 'Invitation has already been accepted' });
+        return res.status(400).json({ error: 'errors.invitationAlreadyAccepted' });
       }
       if (new Date(invitation.expires_at) < new Date()) {
-        return res.status(400).json({ error: 'Invitation has expired' });
+        return res.status(400).json({ error: 'errors.invitationExpired' });
       }
       res.json({
         email: invitation.email,
@@ -2442,20 +2504,20 @@ app.post('/api/invitations/:token/accept', publicReadLimiter, [
     async (err, invitation) => {
       if (err) return next(err);
       if (!invitation) {
-        return res.status(404).json({ error: 'Invitation not found' });
+        return res.status(404).json({ error: 'errors.invitationNotFound' });
       }
       if (invitation.accepted_at) {
-        return res.status(400).json({ error: 'Invitation has already been accepted' });
+        return res.status(400).json({ error: 'errors.invitationAlreadyAccepted' });
       }
       if (new Date(invitation.expires_at) < new Date()) {
-        return res.status(400).json({ error: 'Invitation has expired' });
+        return res.status(400).json({ error: 'errors.invitationExpired' });
       }
       
       // Check if user already exists
       db.get("SELECT id FROM users WHERE email = ?", [invitation.email], async (err, existingUser) => {
         if (err) return next(err);
         if (existingUser) {
-          return res.status(400).json({ error: 'User with this email already exists' });
+          return res.status(400).json({ error: 'errors.userAlreadyExists' });
         }
         
         // Create user
@@ -2528,7 +2590,7 @@ app.post('/api/invitations/:token/accept', publicReadLimiter, [
 // GET List all invitations for organization
 app.get('/api/admin/invitations', requireAuth, requireRole('owner'), apiLimiter, (req, res, next) => {
   if (!req.user.organisationId) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: 'errors.unauthorized' });
   }
 
   db.all(
@@ -2558,7 +2620,7 @@ app.delete('/api/admin/invitations/:invitationId', requireAuth, requireRole('own
   param('invitationId').isUUID().withMessage('Invalid invitation ID')
 ], handleValidationErrors, async (req, res, next) => {
   if (!req.user.organisationId) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: 'errors.unauthorized' });
   }
 
   const { invitationId } = req.params;
@@ -2577,12 +2639,12 @@ app.delete('/api/admin/invitations/:invitationId', requireAuth, requireRole('own
     });
 
     if (!invitation) {
-      return res.status(404).json({ error: 'Invitation not found' });
+      return res.status(404).json({ error: 'errors.invitationNotFound' });
     }
 
     // Don't allow deletion of accepted invitations (for audit trail)
     if (invitation.accepted_at) {
-      return res.status(400).json({ error: 'Cannot delete accepted invitation' });
+      return res.status(400).json({ error: 'errors.cannotDeleteAcceptedInvitation' });
     }
 
     // Log audit before deletion
@@ -2615,7 +2677,7 @@ app.post('/api/admin/invitations/:invitationId/retry', requireAuth, requireRole(
   param('invitationId').isUUID().withMessage('Invalid invitation ID')
 ], handleValidationErrors, async (req, res, next) => {
   if (!req.user.organisationId) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: 'errors.unauthorized' });
   }
 
   const { invitationId } = req.params;
@@ -2637,7 +2699,7 @@ app.post('/api/admin/invitations/:invitationId/retry', requireAuth, requireRole(
     });
 
     if (!invitation) {
-      return res.status(404).json({ error: 'Invitation not found' });
+      return res.status(404).json({ error: 'errors.invitationNotFound' });
     }
 
     // Only allow retry for failed or pending invitations
@@ -2647,29 +2709,38 @@ app.post('/api/admin/invitations/:invitationId/retry', requireAuth, requireRole(
 
     // Check if expired
     if (new Date(invitation.expires_at) < new Date()) {
-      return res.status(400).json({ error: 'Invitation has expired. Please delete and create a new one.' });
+      return res.status(400).json({ error: 'errors.invitationExpiredRecreate' });
     }
 
     // Attempt to send email
     let emailStatus = 'sent';
     let emailError = null;
 
+    // Get org default language for email
+    const retryOrgLangRow = await new Promise((resolve, reject) => {
+      db.get("SELECT value FROM organisation_settings WHERE organisation_id = ? AND key = 'default_language'", [invitation.organisation_id], (err, row) => {
+        if (err) reject(err); else resolve(row);
+      });
+    });
+    const retryEmailLang = (retryOrgLangRow && retryOrgLangRow.value) || 'en';
+
     try {
       if (emailTransporter) {
         const invitationUrl = `${APP_URL}/invite/${invitation.token}`;
+        const interpolations = { organizationName: invitation.org_name };
         const emailHtml = `
-          <h2>You've been invited to join ${invitation.org_name}</h2>
-          <p>You've been invited to join ${invitation.org_name} on Swiish. Click the link below to accept the invitation and create your account.</p>
-          <p><a href="${invitationUrl}" style="background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Accept Invitation</a></p>
-          <p>This invitation will expire in 7 days.</p>
-          <p>If you didn't expect this invitation, you can safely ignore this email.</p>
+          <h2>${serverT('email.invitation.heading', retryEmailLang, interpolations)}</h2>
+          <p>${serverT('email.invitation.introText', retryEmailLang, interpolations)}</p>
+          <p><a href="${invitationUrl}" style="background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">${serverT('email.invitation.buttonText', retryEmailLang)}</a></p>
+          <p>${serverT('email.invitation.expiryNote', retryEmailLang)}</p>
+          <p>${serverT('email.invitation.ignoreNote', retryEmailLang)}</p>
         `;
-        const emailText = `You've been invited to join ${invitation.org_name} on Swiish. Visit ${invitationUrl} to accept the invitation. This invitation expires in 7 days.`;
+        const emailText = serverT('email.invitation.plainTextIntro', retryEmailLang, { ...interpolations, invitationUrl });
 
         await emailTransporter.sendMail({
           from: SMTP_FROM,
           to: invitation.email,
-          subject: `Invitation to join ${invitation.org_name} on Swiish`,
+          subject: serverT('email.invitation.subject', retryEmailLang, interpolations),
           text: emailText,
           html: emailHtml
         });
@@ -2728,7 +2799,7 @@ app.post('/api/auth/forgot-password', apiLimiter, [
     
     // Always return success (don't reveal if email exists)
     if (!user) {
-      return res.json({ success: true, message: 'If an account exists with this email, a password reset link has been sent' });
+      return res.json({ success: true, message: 'success.passwordResetInitiated' });
     }
     
     // Generate secure token
@@ -2751,23 +2822,29 @@ app.post('/api/auth/forgot-password', apiLimiter, [
         async (err) => {
           if (err) return next(err);
           
+          // Get user language for password reset email
+          const pwResetLangRow = await new Promise((resolve) => {
+            db.get("SELECT us.value FROM user_settings us WHERE us.user_id = ? AND us.key = 'language'", [user.id], (err, row) => resolve(row));
+          });
+          const pwResetLang = (pwResetLangRow && pwResetLangRow.value) || 'en';
+
           // Send password reset email
           const resetUrl = `${APP_URL}/reset-password/${token}`;
           const emailHtml = `
-            <h2>Password Reset Request</h2>
-            <p>You requested to reset your password for your Swiish account. Click the link below to reset your password:</p>
-            <p><a href="${resetUrl}" style="background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Reset Password</a></p>
-            <p>This link will expire in 1 hour.</p>
-            <p>If you didn't request a password reset, you can safely ignore this email.</p>
+            <h2>${serverT('email.passwordReset.heading', pwResetLang)}</h2>
+            <p>${serverT('email.passwordReset.introText', pwResetLang)}</p>
+            <p><a href="${resetUrl}" style="background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">${serverT('email.passwordReset.buttonText', pwResetLang)}</a></p>
+            <p>${serverT('email.passwordReset.expiryNote', pwResetLang)}</p>
+            <p>${serverT('email.passwordReset.ignoreNote', pwResetLang)}</p>
           `;
-          const emailText = `You requested to reset your password. Visit ${resetUrl} to reset it. This link expires in 1 hour.`;
-          
+          const emailText = serverT('email.passwordReset.plainTextIntro', pwResetLang, { resetUrl });
+
           try {
             if (emailTransporter) {
               await emailTransporter.sendMail({
                 from: SMTP_FROM,
                 to: emailLower,
-                subject: 'Reset your Swiish password',
+                subject: serverT('email.passwordReset.subject', pwResetLang),
                 text: emailText,
                 html: emailHtml
               });
@@ -2776,8 +2853,8 @@ app.post('/api/auth/forgot-password', apiLimiter, [
             console.error('Failed to send password reset email:', emailErr);
             // Don't fail the request if email fails
           }
-          
-          res.json({ success: true, message: 'If an account exists with this email, a password reset link has been sent' });
+
+          res.json({ success: true, message: 'success.passwordResetInitiated' });
         }
       );
     });
@@ -2798,13 +2875,13 @@ app.post('/api/auth/reset-password', apiLimiter, [
     async (err, resetToken) => {
       if (err) return next(err);
       if (!resetToken) {
-        return res.status(400).json({ error: 'Invalid or expired reset token' });
+        return res.status(400).json({ error: 'errors.invalidResetToken' });
       }
       if (resetToken.used_at) {
-        return res.status(400).json({ error: 'This reset token has already been used' });
+        return res.status(400).json({ error: 'errors.resetTokenAlreadyUsed' });
       }
       if (new Date(resetToken.expires_at) < new Date()) {
-        return res.status(400).json({ error: 'Reset token has expired' });
+        return res.status(400).json({ error: 'errors.resetTokenExpired' });
       }
       
       // Hash new password
@@ -2827,7 +2904,7 @@ app.post('/api/auth/reset-password', apiLimiter, [
                 // Don't fail the request
               }
               
-              res.json({ success: true, message: 'Password has been reset successfully' });
+              res.json({ success: true, message: 'success.passwordResetSuccessful' });
             }
           );
         }
@@ -2842,7 +2919,7 @@ app.post('/api/auth/change-password', requireAuth, apiLimiter, csrfProtection, [
   body('newPassword').isLength({ min: 8 }).withMessage('New password must be at least 8 characters')
 ], handleValidationErrors, async (req, res, next) => {
   if (!req.user.id) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: 'errors.unauthorized' });
   }
   
   const { currentPassword, newPassword } = req.body;
@@ -2851,13 +2928,13 @@ app.post('/api/auth/change-password', requireAuth, apiLimiter, csrfProtection, [
   db.get("SELECT password_hash FROM users WHERE id = ?", [req.user.id], async (err, user) => {
     if (err) return next(err);
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: 'errors.userNotFound' });
     }
     
     // Verify current password
     const passwordMatch = await bcrypt.compare(currentPassword, user.password_hash);
     if (!passwordMatch) {
-      return res.status(401).json({ error: 'Current password is incorrect' });
+      return res.status(401).json({ error: 'errors.currentPasswordIncorrect' });
     }
     
     // Hash new password
@@ -2869,7 +2946,7 @@ app.post('/api/auth/change-password', requireAuth, apiLimiter, csrfProtection, [
       [passwordHash, req.user.id],
       (err) => {
         if (err) return next(err);
-        res.json({ success: true, message: 'Password has been changed successfully' });
+        res.json({ success: true, message: 'success.passwordChangedSuccessfully' });
       }
     );
   });
@@ -2880,17 +2957,17 @@ app.post('/api/auth/change-password', requireAuth, apiLimiter, csrfProtection, [
 // POST Send Verification Email
 app.post('/api/auth/send-verification', requireAuth, apiLimiter, csrfProtection, async (req, res, next) => {
   if (!req.user.id) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: 'errors.unauthorized' });
   }
   
   // Get user email
   db.get("SELECT email, email_verified FROM users WHERE id = ?", [req.user.id], async (err, user) => {
     if (err) return next(err);
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: 'errors.userNotFound' });
     }
     if (user.email_verified) {
-      return res.status(400).json({ error: 'Email is already verified' });
+      return res.status(400).json({ error: 'errors.emailAlreadyVerified' });
     }
     
     // Check for existing unused verification token
@@ -2900,7 +2977,7 @@ app.post('/api/auth/send-verification', requireAuth, apiLimiter, csrfProtection,
       async (err, existingToken) => {
         if (err) return next(err);
         if (existingToken) {
-          return res.status(400).json({ error: 'Verification email already sent. Please check your email or wait before requesting another.' });
+          return res.status(400).json({ error: 'errors.verificationEmailAlreadySent' });
         }
         
         // Generate verification token
@@ -2916,33 +2993,39 @@ app.post('/api/auth/send-verification', requireAuth, apiLimiter, csrfProtection,
           async (err) => {
             if (err) return next(err);
             
+            // Get user language for verification email
+            const verifyLangRow = await new Promise((resolve) => {
+              db.get("SELECT value FROM user_settings WHERE user_id = ? AND key = 'language'", [req.user.id], (err, row) => resolve(row));
+            });
+            const verifyEmailLang = (verifyLangRow && verifyLangRow.value) || 'en';
+
             // Send verification email
             const verifyUrl = `${APP_URL}/verify-email/${token}`;
             const emailHtml = `
-              <h2>Verify Your Email Address</h2>
-              <p>Please verify your email address by clicking the link below:</p>
-              <p><a href="${verifyUrl}" style="background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Verify Email</a></p>
-              <p>This link will expire in 7 days.</p>
-              <p>If you didn't create an account, you can safely ignore this email.</p>
+              <h2>${serverT('email.verification.heading', verifyEmailLang)}</h2>
+              <p>${serverT('email.verification.introText', verifyEmailLang)}</p>
+              <p><a href="${verifyUrl}" style="background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">${serverT('email.verification.buttonText', verifyEmailLang)}</a></p>
+              <p>${serverT('email.verification.expiryNote', verifyEmailLang)}</p>
+              <p>${serverT('email.verification.ignoreNote', verifyEmailLang)}</p>
             `;
-            const emailText = `Please verify your email address by visiting ${verifyUrl}. This link expires in 7 days.`;
-            
+            const emailText = serverT('email.verification.plainTextIntro', verifyEmailLang, { verifyUrl });
+
             try {
               if (emailTransporter) {
                 await emailTransporter.sendMail({
                   from: SMTP_FROM,
                   to: user.email,
-                  subject: 'Verify your Swiish email address',
+                  subject: serverT('email.verification.subject', verifyEmailLang),
                   text: emailText,
                   html: emailHtml
                 });
               }
             } catch (emailErr) {
               console.error('Failed to send verification email:', emailErr);
-              return res.status(500).json({ error: 'Failed to send verification email' });
+              return res.status(500).json({ error: 'errors.failedToSendVerificationEmail' });
             }
-            
-            res.json({ success: true, message: 'Verification email sent' });
+
+            res.json({ success: true, message: 'success.verificationEmailSent' });
           }
         );
       }
@@ -2963,13 +3046,13 @@ app.get('/api/auth/verify-email/:token', publicReadLimiter, [
     (err, verificationToken) => {
       if (err) return next(err);
       if (!verificationToken) {
-        return res.status(400).json({ error: 'Invalid or expired verification token' });
+        return res.status(400).json({ error: 'errors.invalidVerificationToken' });
       }
       if (verificationToken.verified_at) {
-        return res.status(400).json({ error: 'Email has already been verified' });
+        return res.status(400).json({ error: 'errors.emailAlreadyVerifiedToken' });
       }
       if (new Date(verificationToken.expires_at) < new Date()) {
-        return res.status(400).json({ error: 'Verification token has expired' });
+        return res.status(400).json({ error: 'errors.verificationTokenExpired' });
       }
       
       // Mark email as verified
@@ -2989,7 +3072,7 @@ app.get('/api/auth/verify-email/:token', publicReadLimiter, [
                 // Don't fail the request
               }
               
-              res.json({ success: true, message: 'Email verified successfully' });
+              res.json({ success: true, message: 'success.emailVerifiedSuccessfully' });
             }
           );
         }
@@ -3054,7 +3137,7 @@ app.get('/manifest/:slug.json', publicReadLimiter, [
     if (err) return next(err);
     
     if (!row) {
-      return res.status(404).json({ error: 'Card not found' });
+      return res.status(404).json({ error: 'errors.cardNotFound' });
     }
 
     // Use the actual card slug for icon generation (not the short code or org slug)
@@ -3224,7 +3307,7 @@ app.get('/api/qr/:identifier', publicReadLimiter, [
       db.get("SELECT short_code FROM cards WHERE slug = ? LIMIT 1", [slug], async (err, row) => {
         if (err) return next(err);
         if (!row || !row.short_code) {
-          return res.status(404).json({ error: "Card not found" });
+          return res.status(404).json({ error: 'errors.cardNotFound' });
         }
         cardUrl = `${baseUrl}/${row.short_code}`;
         
@@ -3273,7 +3356,7 @@ app.post('/api/qr/:identifier', publicReadLimiter, [
       db.get("SELECT short_code FROM cards WHERE slug = ? LIMIT 1", [slug], async (err, row) => {
         if (err) return next(err);
         if (!row || !row.short_code) {
-          return res.status(404).json({ error: "Card not found" });
+          return res.status(404).json({ error: 'errors.cardNotFound' });
         }
         cardUrl = `${baseUrl}/${row.short_code}`;
         
@@ -3285,9 +3368,9 @@ app.post('/api/qr/:identifier', publicReadLimiter, [
 
         try {
           const qrDataUrl = await QRCode.toDataURL(qrContent, {
-            errorCorrectionLevel: 'M',
+            errorCorrectionLevel: qrContent.length > 500 ? 'L' : 'M',
             type: 'image/png',
-            width: 200,
+            width: qrContent.length > 500 ? 300 : 200,
             margin: 1
           });
           res.json({ qrCode: qrDataUrl });
@@ -3305,9 +3388,9 @@ app.post('/api/qr/:identifier', publicReadLimiter, [
     }
 
     const qrDataUrl = await QRCode.toDataURL(qrContent, {
-      errorCorrectionLevel: 'M',
+      errorCorrectionLevel: qrContent.length > 500 ? 'L' : 'M',
       type: 'image/png',
-      width: 200,
+      width: qrContent.length > 500 ? 300 : 200,
       margin: 1
     });
 
