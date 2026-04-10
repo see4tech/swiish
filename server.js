@@ -484,7 +484,7 @@ const requireAuth = (req, res, next) => {
   if (IS_DEMO_MODE && DEMO_USER_ID) {
     // Get demo user from database (using callback API since sqlite3 is async)
     db.get(
-      'SELECT id, role, organisation_id FROM users WHERE id = ?',
+      'SELECT id, role, organisation_id, is_platform_admin FROM users WHERE id = ?',
       [DEMO_USER_ID],
       (err, row) => {
         if (err || !row) {
@@ -493,7 +493,8 @@ const requireAuth = (req, res, next) => {
         req.user = {
           id: row.id,
           organisationId: row.organisation_id,
-          role: row.role
+          role: row.role,
+          isPlatformAdmin: row.is_platform_admin === 1
         };
         next();
       }
@@ -515,7 +516,8 @@ const requireAuth = (req, res, next) => {
       req.user = {
         id: decoded.user_id,
         organisationId: decoded.organisation_id || null,
-        role: decoded.role || 'member'
+        role: decoded.role || 'member',
+        isPlatformAdmin: decoded.is_platform_admin === true
       };
     } else if (decoded.admin) {
       // Backward compatibility: if old JWT format, treat as admin
@@ -547,6 +549,17 @@ const requireRole = (...allowedRoles) => {
     
     next();
   };
+};
+
+// Platform admin access control middleware
+const requirePlatformAdmin = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  if (!req.user.isPlatformAdmin) {
+    return res.status(403).json({ error: 'Forbidden: Platform admin access required' });
+  }
+  next();
 };
 
 // Error handling middleware
@@ -686,11 +699,11 @@ app.post('/api/setup/initialize', apiLimiter, csrfProtection, [
         `, [orgId, organisationName, slug, 'individual'], (err) => {
           if (err) return next(err);
           
-          // Create admin user
+          // Create admin user (also platform admin — the first user is always platform admin)
           db.run(`
-            INSERT INTO users (id, email, password_hash, organisation_id, role, email_verified)
-            VALUES (?, ?, ?, ?, ?, ?)
-          `, [userId, adminEmail.toLowerCase(), passwordHash, orgId, 'owner', 0], async (err) => {
+            INSERT INTO users (id, email, password_hash, organisation_id, role, email_verified, is_platform_admin)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+          `, [userId, adminEmail.toLowerCase(), passwordHash, orgId, 'owner', 0, 1], async (err) => {
             if (err) return next(err);
             
             // Initialize default organisation settings
@@ -711,7 +724,8 @@ app.post('/api/setup/initialize', apiLimiter, csrfProtection, [
               {
                 user_id: userId,
                 organisation_id: orgId,
-                role: 'owner'
+                role: 'owner',
+                is_platform_admin: true
               },
               JWT_SECRET,
               { expiresIn: JWT_EXPIRES_IN }
@@ -750,7 +764,7 @@ app.post('/api/login', loginLimiter, [
     const { email, password } = req.body;
     
     // Look up user by email
-    db.get("SELECT id, email, password_hash, organisation_id, role FROM users WHERE email = ?", [email.toLowerCase()], async (err, user) => {
+    db.get("SELECT id, email, password_hash, organisation_id, role, is_platform_admin FROM users WHERE email = ?", [email.toLowerCase()], async (err, user) => {
       if (err) {
         return next(err);
       }
@@ -771,7 +785,8 @@ app.post('/api/login', loginLimiter, [
         {
           user_id: user.id,
           organisation_id: user.organisation_id,
-          role: user.role
+          role: user.role,
+          is_platform_admin: user.is_platform_admin === 1
         },
         JWT_SECRET,
         { expiresIn: JWT_EXPIRES_IN }
@@ -866,7 +881,7 @@ app.get('/api/auth/me', requireAuth, apiLimiter, (req, res, next) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   
-  db.get("SELECT id, email, organisation_id, role, email_verified FROM users WHERE id = ?", [req.user.id], (err, user) => {
+  db.get("SELECT id, email, organisation_id, role, email_verified, is_platform_admin FROM users WHERE id = ?", [req.user.id], (err, user) => {
     if (err) return next(err);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -876,7 +891,8 @@ app.get('/api/auth/me', requireAuth, apiLimiter, (req, res, next) => {
       email: user.email,
       organisationId: user.organisation_id,
       role: user.role,
-      emailVerified: user.email_verified === 1
+      emailVerified: user.email_verified === 1,
+      isPlatformAdmin: user.is_platform_admin === 1
     });
   });
 });
@@ -2476,7 +2492,8 @@ app.post('/api/invitations/:token/accept', publicReadLimiter, [
                   {
                     user_id: userId,
                     organisation_id: invitation.organisation_id,
-                    role: invitation.role
+                    role: invitation.role,
+                    is_platform_admin: false
                   },
                   JWT_SECRET,
                   { expiresIn: JWT_EXPIRES_IN }
@@ -3292,6 +3309,138 @@ app.post('/api/qr/:identifier', publicReadLimiter, [
   } catch (err) {
     next(err);
   }
+});
+
+// --- PLATFORM ADMIN ENDPOINTS ---
+
+// GET all organisations (platform admin only)
+app.get('/api/platform/organisations', requireAuth, requirePlatformAdmin, apiLimiter, (req, res, next) => {
+  db.all(
+    `SELECT o.id, o.name, o.slug, o.subscription_tier, o.created_at,
+            COUNT(u.id) AS user_count
+     FROM organisations o
+     LEFT JOIN users u ON u.organisation_id = o.id
+     GROUP BY o.id
+     ORDER BY o.created_at DESC`,
+    [],
+    (err, rows) => {
+      if (err) return next(err);
+      res.json({ organisations: rows });
+    }
+  );
+});
+
+// POST create a new organisation with an owner (platform admin only)
+app.post('/api/platform/organisations', requireAuth, requirePlatformAdmin, apiLimiter, csrfProtection, [
+  body('organisationName').trim().isLength({ min: 1, max: 200 }).withMessage('Organisation name is required and must be less than 200 characters'),
+  body('ownerEmail').custom((value) => {
+    if (value && (validator.isEmail(value) || /^[^\s@]+@localhost(\.[^\s@]+)?$/.test(value))) {
+      return true;
+    }
+    throw new Error('Valid owner email required');
+  }),
+  body('ownerPassword').isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
+], handleValidationErrors, async (req, res, next) => {
+  const { organisationName, ownerEmail, ownerPassword } = req.body;
+
+  // Check email is not already in use
+  db.get("SELECT id FROM users WHERE email = ?", [ownerEmail.toLowerCase()], async (err, existing) => {
+    if (err) return next(err);
+    if (existing) {
+      return res.status(400).json({ error: 'A user with this email already exists' });
+    }
+
+    // Generate org slug
+    const baseSlug = organisationName.toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+/, '')
+      .replace(/-+$/, '')
+      || 'organisation';
+
+    const findAvailableSlug = (slug, counter = 0) => {
+      const finalSlug = counter === 0 ? slug : `${baseSlug}-${counter}`;
+      db.get("SELECT id FROM organisations WHERE slug = ?", [finalSlug], (err, existingOrg) => {
+        if (err) return next(err);
+        if (existingOrg) {
+          findAvailableSlug(slug, counter + 1);
+        } else {
+          createOrgAndOwner(finalSlug);
+        }
+      });
+    };
+
+    findAvailableSlug(baseSlug);
+
+    async function createOrgAndOwner(slug) {
+      const orgId = require('crypto').randomUUID();
+      const userId = require('crypto').randomUUID();
+
+      try {
+        const passwordHash = await bcrypt.hash(ownerPassword, 10);
+
+        db.run(
+          `INSERT INTO organisations (id, name, slug, subscription_tier) VALUES (?, ?, ?, ?)`,
+          [orgId, organisationName, slug, 'individual'],
+          async (err) => {
+            if (err) return next(err);
+
+            db.run(
+              `INSERT INTO users (id, email, password_hash, organisation_id, role, email_verified, is_platform_admin) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+              [userId, ownerEmail.toLowerCase(), passwordHash, orgId, 'owner', 0, 0],
+              async (err) => {
+                if (err) return next(err);
+
+                const defaultColors = getDefaultThemeColors();
+                try {
+                  await dbRun("INSERT INTO organisation_settings (organisation_id, key, value, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)", [orgId, 'default_organisation', organisationName]);
+                  await dbRun("INSERT INTO organisation_settings (organisation_id, key, value, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)", [orgId, 'theme_colors', JSON.stringify(defaultColors)]);
+                  await dbRun("INSERT INTO organisation_settings (organisation_id, key, value, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)", [orgId, 'allow_theme_customisation', 'true']);
+                  await dbRun("INSERT INTO organisation_settings (organisation_id, key, value, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)", [orgId, 'allow_image_customisation', 'true']);
+                  await dbRun("INSERT INTO organisation_settings (organisation_id, key, value, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)", [orgId, 'allow_links_customisation', 'true']);
+                  await dbRun("INSERT INTO organisation_settings (organisation_id, key, value, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)", [orgId, 'allow_privacy_customisation', 'true']);
+                } catch (err) {
+                  return next(err);
+                }
+
+                res.json({ success: true, orgId, userId, orgName: organisationName, ownerEmail: ownerEmail.toLowerCase() });
+              }
+            );
+          }
+        );
+      } catch (err) {
+        return next(err);
+      }
+    }
+  });
+});
+
+// DELETE an organisation (platform admin only)
+app.delete('/api/platform/organisations/:orgId', requireAuth, requirePlatformAdmin, apiLimiter, csrfProtection, [
+  param('orgId').isUUID().withMessage('Invalid organisation ID')
+], handleValidationErrors, (req, res, next) => {
+  const { orgId } = req.params;
+
+  // Prevent platform admin from deleting their own org
+  if (orgId === req.user.organisationId) {
+    return res.status(400).json({ error: 'Cannot delete your own organisation' });
+  }
+
+  db.get("SELECT id, name FROM organisations WHERE id = ?", [orgId], (err, org) => {
+    if (err) return next(err);
+    if (!org) return res.status(404).json({ error: 'Organisation not found' });
+
+    // Delete users first (cascades their cards, user_settings, password_reset_tokens, email_verification_tokens)
+    db.run("DELETE FROM users WHERE organisation_id = ?", [orgId], (err) => {
+      if (err) return next(err);
+
+      // Delete the organisation (cascades organisation_settings, invitations, audit_log)
+      db.run("DELETE FROM organisations WHERE id = ?", [orgId], (err) => {
+        if (err) return next(err);
+        res.json({ success: true });
+      });
+    });
+  });
 });
 
 // Error handling middleware (must be last)
