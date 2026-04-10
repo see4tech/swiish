@@ -1818,7 +1818,7 @@ const [settings, setSettings] = useState({
           fetchCardList();
           setTimeout(() => {
             setIsSuccess(false);
-            navigate(`/${currentSlug}`);
+            navigate('/people');
           }, 1200);
         } else {
           showAlert(t('errors.saveFailed'), 'error');
@@ -2407,11 +2407,7 @@ const [settings, setSettings] = useState({
           <EditorView
             data={data}
             setData={setData}
-            onBack={() => {
-              const cardExists = cardList.some(c => c.slug === currentSlug);
-              if (cardExists) { navigate(`/${currentSlug}`); }
-              else { navigate('/people'); fetchCardList(); }
-            }}
+            onBack={() => { navigate('/people'); fetchCardList(); }}
             onSave={handleSave}
             slug={currentSlug}
             settings={editorSettingsOverride || settings}
