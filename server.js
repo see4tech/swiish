@@ -1870,7 +1870,7 @@ app.get('/api/settings', apiLimiter, (req, res, next) => {
 });
 
 // GET Settings (Admin - full settings)
-app.get('/api/admin/settings', requireAuth, requireRole('owner'), apiLimiter, (req, res, next) => {
+app.get('/api/admin/settings', requireAuth, apiLimiter, (req, res, next) => {
   // Ensure user is authenticated and has organization
   if (!req.user.organisationId) {
     return res.status(401).json({ error: 'errors.unauthorized' });
@@ -1903,47 +1903,53 @@ app.get('/api/admin/settings', requireAuth, requireRole('owner'), apiLimiter, (r
       }
     });
     
-    // Ensure defaults exist
-    if (!settings.default_organisation) {
-      settings.default_organisation = 'My Organisation';
-    }
-    if (!settings.theme_colors || !Array.isArray(settings.theme_colors)) {
-      settings.theme_colors = getDefaultThemeColors();
-    }
-    if (!settings.theme_variant) {
-      settings.theme_variant = 'swiish';
-    }
-    // Ensure override toggles have defaults (true = allow customisation)
-    if (settings.allow_theme_customisation === undefined) {
-      settings.allow_theme_customisation = true;
-    }
-    if (settings.allow_image_customisation === undefined) {
-      settings.allow_image_customisation = true;
-    }
-    if (settings.allow_links_customisation === undefined) {
-      settings.allow_links_customisation = true;
-    }
-    if (settings.allow_privacy_customisation === undefined) {
-      settings.allow_privacy_customisation = true;
-    }
-    if (!settings.default_language) {
-      settings.default_language = 'en';
-    }
-
-    log('GET /api/admin/settings - Returning settings', {
-      organisationId: req.user.organisationId,
-      settings: {
-        default_organisation: settings.default_organisation,
-        theme_variant: settings.theme_variant,
-        allow_theme_customisation: settings.allow_theme_customisation,
-        allow_image_customisation: settings.allow_image_customisation,
-        allow_links_customisation: settings.allow_links_customisation,
-        allow_privacy_customisation: settings.allow_privacy_customisation,
-        theme_colors_count: settings.theme_colors?.length
+    const finalize = () => {
+      if (!settings.theme_colors || !Array.isArray(settings.theme_colors)) {
+        settings.theme_colors = getDefaultThemeColors();
       }
-    });
-    
-    res.json(settings);
+      if (!settings.theme_variant) {
+        settings.theme_variant = 'swiish';
+      }
+      if (settings.allow_theme_customisation === undefined) {
+        settings.allow_theme_customisation = true;
+      }
+      if (settings.allow_image_customisation === undefined) {
+        settings.allow_image_customisation = true;
+      }
+      if (settings.allow_links_customisation === undefined) {
+        settings.allow_links_customisation = true;
+      }
+      if (settings.allow_privacy_customisation === undefined) {
+        settings.allow_privacy_customisation = true;
+      }
+      if (!settings.default_language) {
+        settings.default_language = 'en';
+      }
+
+      log('GET /api/admin/settings - Returning settings', {
+        organisationId: req.user.organisationId,
+        settings: {
+          default_organisation: settings.default_organisation,
+          theme_variant: settings.theme_variant,
+          allow_theme_customisation: settings.allow_theme_customisation,
+          allow_image_customisation: settings.allow_image_customisation,
+          allow_links_customisation: settings.allow_links_customisation,
+          allow_privacy_customisation: settings.allow_privacy_customisation,
+          theme_colors_count: settings.theme_colors?.length
+        }
+      });
+      res.json(settings);
+    };
+
+    // Use real org name if default_organisation not yet configured
+    if (!settings.default_organisation) {
+      db.get('SELECT name FROM organisations WHERE id = ?', [req.user.organisationId], (err2, org) => {
+        settings.default_organisation = (org && org.name) ? org.name : 'My Organisation';
+        finalize();
+      });
+    } else {
+      finalize();
+    }
   });
 });
 
