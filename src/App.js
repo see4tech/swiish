@@ -784,7 +784,7 @@ const [settings, setSettings] = useState({
       ...options.headers
     };
     
-    if (csrfToken && (options.method === 'POST' || options.method === 'DELETE')) {
+    if (csrfToken && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(options.method)) {
       headers['X-CSRF-Token'] = csrfToken;
     }
 
@@ -3255,7 +3255,8 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
         const { url } = await res.json();
         setData(prev => ({ ...prev, images: { ...prev.images, [type]: url } }));
       } else {
-        if (showAlert) showAlert('Upload failed', 'error');
+        const errorData = await res.json().catch(() => ({}));
+        if (showAlert) showAlert(errorData.error || 'Upload failed', 'error');
       }
     } catch (error) {
       if (showAlert) showAlert('Upload error', 'error');
