@@ -4768,8 +4768,8 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
         await onSave();
       } else {
         const errorData = await res.json().catch(() => ({}));
-        console.error('Save failed:', errorData);
-        if (showAlert) showAlert('Failed to save settings', 'error');
+        console.error('Save failed:', res.status, errorData);
+        if (showAlert) showAlert(errorData.error || `Failed to save settings (${res.status})`, 'error');
       }
     } catch (e) {
       if (showAlert) showAlert('Error saving settings', 'error');

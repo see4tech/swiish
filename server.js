@@ -578,6 +578,9 @@ const errorHandler = (err, req, res, next) => {
   
   // Don't leak error details in production
   if (NODE_ENV === 'production') {
+    if (err.code === 'EBADCSRFTOKEN') {
+      return res.status(403).json({ error: 'Invalid or missing CSRF token. Please refresh the page and try again.' });
+    }
     if (err.name === 'ValidationError') {
       return res.status(400).json({ error: 'Invalid input' });
     }
