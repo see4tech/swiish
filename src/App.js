@@ -6119,9 +6119,6 @@ function SuperAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm }) 
 
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
-          <button onClick={onBack} className="p-2 rounded-full hover:bg-surface dark:hover:bg-surface-dark transition-colors text-text-secondary dark:text-text-secondary-dark">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
           <div className="flex-1">
             <h1 className="text-2xl font-bold text-text-primary dark:text-text-primary-dark flex items-center gap-2">
               <ShieldAlert className="w-6 h-6 text-purple-600 dark:text-purple-400" />
