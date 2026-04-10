@@ -1954,11 +1954,9 @@ const [settings, setSettings] = useState({
                      <Shield className="w-4 h-4" /> <span className="hidden sm:inline">{t('dashboard.platformAdminNav')}</span><span className="sm:hidden">{t('dashboard.adminNav')}</span>
                    </button>
                  )}
-                 {!isSuperAdmin && (
-                   <button onClick={handleCreateNew} className="bg-action dark:bg-action-dark text-white px-4 py-2 md:px-6 md:py-3 rounded-full font-bold flex items-center gap-2 hover:bg-action-hover dark:hover:bg-action-hover-dark transition-all whitespace-nowrap text-sm md:text-base">
-                     <Plus className="w-4 h-4 md:w-5 md:h-5" /> {t('dashboard.newPerson')}
-                   </button>
-                 )}
+                 <button onClick={handleCreateNew} className="bg-action dark:bg-action-dark text-white px-4 py-2 md:px-6 md:py-3 rounded-full font-bold flex items-center gap-2 hover:bg-action-hover dark:hover:bg-action-hover-dark transition-all whitespace-nowrap text-sm md:text-base">
+                   <Plus className="w-4 h-4 md:w-5 md:h-5" /> {t('dashboard.newPerson')}
+                 </button>
                </div>
             </div>
             {isSuperAdmin ? (
