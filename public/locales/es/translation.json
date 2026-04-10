@@ -580,7 +580,8 @@
     "deleteUser": "Eliminar usuario",
     "emailInUseConfirm": "Otra tarjeta ya usa esta dirección de correo ({{email}}). ¿Deseas guardar de todos modos?",
     "emailInUseTitle": "Correo electrónico ya en uso",
-    "saveAnyway": "Guardar de todos modos"
+    "saveAnyway": "Guardar de todos modos",
+    "deleteOrgConfirm": "¿Estás seguro de que quieres eliminar la organización \"{{name}}\"? Esto eliminará todos los usuarios, tarjetas y datos de esta organización. Esta acción no se puede deshacer."
   },
   "emptyStates": {
     "noCardYet": "Aún no tienes una tarjeta",
@@ -651,7 +652,8 @@
   },
   "demoMode": {
     "demoMode": "Modo demo",
-    "allChangesReset": "Todos los cambios se reinician cada {{minutes}} minutos"
+    "allChangesReset": "Todos los cambios se reinician cada {{minutes}} minutos",
+    "resetInterval": "Todos los cambios se reinician cada {{minutes}} minutos"
   },
   "email": {
     "invitation": {

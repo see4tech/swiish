@@ -580,7 +580,8 @@
     "deleteUser": "Delete User",
     "emailInUseConfirm": "Another card already uses this email address ({{email}}). Would you like to save anyway?",
     "emailInUseTitle": "Email Already in Use",
-    "saveAnyway": "Save Anyway"
+    "saveAnyway": "Save Anyway",
+    "deleteOrgConfirm": "Are you sure you want to delete organisation \"{{name}}\"? This will delete all users, cards, and data for this organisation. This action cannot be undone."
   },
   "emptyStates": {
     "noCardYet": "You don't have a card yet",
@@ -651,7 +652,8 @@
   },
   "demoMode": {
     "demoMode": "Demo Mode",
-    "allChangesReset": "All changes reset every {{minutes}} minutes"
+    "allChangesReset": "All changes reset every {{minutes}} minutes",
+    "resetInterval": "All changes reset every {{minutes}} minutes"
   },
   "email": {
     "invitation": {
