@@ -1670,7 +1670,7 @@ const [settings, setSettings] = useState({
   const handleRemoveUser = async (userId, userEmail) => {
     if (showConfirm) {
       showConfirm(
-        t('modals.deleteUserConfirm', { email: userEmail }),
+        t('modals.deleteUserConfirm', { userEmail: userEmail }),
         async () => {
           try {
             const res = await apiCall(`${API_ENDPOINT}/admin/users/${userId}`, {
@@ -4187,7 +4187,7 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
   const handleRemoveUser = async (userId, userEmail) => {
     if (showConfirm) {
       showConfirm(
-        t('modals.deleteUserConfirm', { email: userEmail }),
+        t('modals.deleteUserConfirm', { userEmail: userEmail }),
         async () => {
           try {
             const res = await apiCall(`${API_ENDPOINT}/admin/users/${userId}`, {
@@ -6068,7 +6068,7 @@ function SuperAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm }) 
   };
 
   const handleDelete = (userId, email) => {
-    showConfirm(t('modals.deleteUserConfirm', { email }), async () => {
+    showConfirm(t('modals.deleteUserConfirm', { userEmail: email }), async () => {
       try {
         const res = await apiCall(`${API_ENDPOINT}/superadmin/users/${userId}`, {
           method: 'DELETE',
