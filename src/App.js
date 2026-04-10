@@ -3978,46 +3978,52 @@ function CropModal({ image, aspect, onComplete, onCancel }) {
     onComplete(blob);
   };
 
+  const cropAreaHeight = aspect === 1 ? 320 : 220;
+
   return createPortal(
-    <div className="fixed inset-0 z-[9999] bg-black/90 flex flex-col">
-      <div className="flex-1 relative">
-        <Cropper
-          image={image}
-          crop={crop}
-          zoom={zoom}
-          aspect={aspect}
-          onCropChange={setCrop}
-          onZoomChange={setZoom}
-          onCropComplete={onCropComplete}
-        />
-      </div>
-      <div className="bg-card dark:bg-card-dark border-t border-border dark:border-border-dark p-4 space-y-3">
-        <p className="text-xs text-text-muted dark:text-text-muted-dark text-center">{t('editor.cropDescription')}</p>
-        <div className="flex items-center gap-3 px-4">
-          <span className="text-xs text-text-muted dark:text-text-muted-dark whitespace-nowrap">{t('editor.zoomLabel')}</span>
-          <input
-            type="range"
-            min={1}
-            max={3}
-            step={0.1}
-            value={zoom}
-            onChange={(e) => setZoom(Number(e.target.value))}
-            className="flex-1 accent-action dark:accent-action-dark"
+    <div className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center p-4">
+      <div className="bg-card dark:bg-card-dark rounded-card shadow-2xl w-full max-w-md flex flex-col overflow-hidden">
+        {/* Cropper area — explicit height so react-easy-crop renders the image */}
+        <div className="relative w-full bg-black" style={{ height: cropAreaHeight }}>
+          <Cropper
+            image={image}
+            crop={crop}
+            zoom={zoom}
+            aspect={aspect}
+            onCropChange={setCrop}
+            onZoomChange={setZoom}
+            onCropComplete={onCropComplete}
           />
         </div>
-        <div className="flex gap-3">
-          <button
-            onClick={onCancel}
-            className="flex-1 px-4 py-2.5 border border-border dark:border-border-dark rounded-full text-text-secondary dark:text-text-secondary-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors text-sm font-medium"
-          >
-            {t('common.cancel')}
-          </button>
-          <button
-            onClick={handleApply}
-            className="flex-1 px-4 py-2.5 bg-action dark:bg-action-dark text-white rounded-full text-sm font-bold hover:bg-action-hover dark:hover:bg-action-hover-dark transition-colors"
-          >
-            {t('editor.apply')}
-          </button>
+        {/* Controls */}
+        <div className="p-4 space-y-3">
+          <p className="text-xs text-text-muted dark:text-text-muted-dark text-center">{t('editor.cropDescription')}</p>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-text-muted dark:text-text-muted-dark whitespace-nowrap">{t('editor.zoomLabel')}</span>
+            <input
+              type="range"
+              min={1}
+              max={3}
+              step={0.1}
+              value={zoom}
+              onChange={(e) => setZoom(Number(e.target.value))}
+              className="flex-1 accent-action dark:accent-action-dark"
+            />
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={onCancel}
+              className="flex-1 px-4 py-2.5 border border-border dark:border-border-dark rounded-full text-text-secondary dark:text-text-secondary-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors text-sm font-medium"
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              onClick={handleApply}
+              className="flex-1 px-4 py-2.5 bg-action dark:bg-action-dark text-white rounded-full text-sm font-bold hover:bg-action-hover dark:hover:bg-action-hover-dark transition-colors"
+            >
+              {t('editor.apply')}
+            </button>
+          </div>
         </div>
       </div>
     </div>,
