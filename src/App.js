@@ -5400,6 +5400,11 @@ function PlatformAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm 
   const [newOrg, setNewOrg] = useState({ organisationName: '', ownerEmail: '', ownerPassword: '' });
   const [isSaving, setIsSaving] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  // Settings modal state
+  const [editingOrg, setEditingOrg] = useState(null); // { id, name } of org being edited
+  const [orgSettings, setOrgSettings] = useState(null);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(false);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   useEffect(() => {
     fetchOrganisations();
@@ -5477,6 +5482,90 @@ function PlatformAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm 
     }
   };
 
+  const handleOpenSettings = async (org) => {
+    setEditingOrg(org);
+    setIsLoadingSettings(true);
+    try {
+      const res = await apiCall(`${API_ENDPOINT}/platform/organisations/${org.id}/settings`);
+      if (res.ok) {
+        const data = await res.json();
+        setOrgSettings(data);
+      } else {
+        if (showAlert) showAlert('Failed to load settings', 'error');
+        setEditingOrg(null);
+      }
+    } catch (e) {
+      if (showAlert) showAlert('Error loading settings', 'error');
+      setEditingOrg(null);
+    } finally {
+      setIsLoadingSettings(false);
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    if (!editingOrg || !orgSettings) return;
+    setIsSavingSettings(true);
+    try {
+      const res = await apiCall(`${API_ENDPOINT}/platform/organisations/${editingOrg.id}/settings`, {
+        method: 'PUT',
+        body: JSON.stringify(orgSettings)
+      });
+      if (res.ok) {
+        if (showAlert) showAlert('Settings saved', 'success');
+        setEditingOrg(null);
+        setOrgSettings(null);
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        if (showAlert) showAlert(errorData.error || 'Failed to save settings', 'error');
+      }
+    } catch (e) {
+      if (showAlert) showAlert('Error saving settings', 'error');
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  const handleAddColor = () => {
+    if (!orgSettings) return;
+    setOrgSettings({
+      ...orgSettings,
+      theme_colors: [...(orgSettings.theme_colors || []), {
+        name: 'new-color',
+        colorType: 'custom',
+        baseColor: null,
+        hexBase: '#6366f1',
+        hexSecondary: '#8b5cf6',
+        gradientStyle: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+        buttonStyle: '#6366f1',
+        linkStyle: '#6366f1',
+        textStyle: '#6366f1'
+      }]
+    });
+  };
+
+  const handleRemoveColor = (index) => {
+    if (!orgSettings) return;
+    const colors = [...orgSettings.theme_colors];
+    colors.splice(index, 1);
+    setOrgSettings({ ...orgSettings, theme_colors: colors });
+  };
+
+  const handleUpdateColor = (index, field, value) => {
+    if (!orgSettings) return;
+    const colors = [...orgSettings.theme_colors];
+    colors[index] = { ...colors[index], [field]: value };
+    // Auto-update derived styles when hex values change
+    if (field === 'hexBase' || field === 'hexSecondary') {
+      const base = field === 'hexBase' ? value : colors[index].hexBase;
+      const secondary = field === 'hexSecondary' ? value : (colors[index].hexSecondary || base);
+      colors[index].gradientStyle = `linear-gradient(135deg, ${base}, ${secondary})`;
+      colors[index].buttonStyle = base;
+      colors[index].linkStyle = base;
+      colors[index].textStyle = base;
+    }
+    setOrgSettings({ ...orgSettings, theme_colors: colors });
+  };
+
   const formatDate = (dateStr) => {
     if (!dateStr) return '—';
     return new Date(dateStr).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
@@ -5534,13 +5623,22 @@ function PlatformAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm 
                         </div>
                       </div>
                     </div>
-                    <button
-                      onClick={() => handleDeleteOrg(org.id, org.name)}
-                      className="p-2 text-text-muted dark:text-text-muted-dark hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
-                      title="Delete organisation"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleOpenSettings(org)}
+                        className="p-2 text-text-muted dark:text-text-muted-dark hover:text-indigo-500 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-full transition-colors"
+                        title="Organisation settings"
+                      >
+                        <Settings className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteOrg(org.id, org.name)}
+                        className="p-2 text-text-muted dark:text-text-muted-dark hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+                        title="Delete organisation"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 ))
               )}
@@ -5549,6 +5647,7 @@ function PlatformAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm 
         )}
       </div>
 
+      {/* Create Organisation Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-card dark:bg-card-dark rounded-card shadow-xl max-w-md w-full p-6">
@@ -5561,56 +5660,111 @@ function PlatformAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm 
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-text-secondary dark:text-text-secondary-dark mb-1">Organisation Name</label>
-                <input
-                  type="text"
-                  value={newOrg.organisationName}
-                  onChange={(e) => setNewOrg({ ...newOrg, organisationName: e.target.value })}
-                  className="w-full px-3 py-2 bg-main dark:bg-main-dark border border-border dark:border-border-dark rounded-input text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-action dark:focus:ring-action-dark"
-                  placeholder="Acme Corp"
-                />
+                <input type="text" value={newOrg.organisationName} onChange={(e) => setNewOrg({ ...newOrg, organisationName: e.target.value })} className="w-full px-3 py-2 bg-main dark:bg-main-dark border border-border dark:border-border-dark rounded-input text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-action dark:focus:ring-action-dark" placeholder="Acme Corp" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-text-secondary dark:text-text-secondary-dark mb-1">Owner Email</label>
-                <input
-                  type="email"
-                  value={newOrg.ownerEmail}
-                  onChange={(e) => setNewOrg({ ...newOrg, ownerEmail: e.target.value })}
-                  className="w-full px-3 py-2 bg-main dark:bg-main-dark border border-border dark:border-border-dark rounded-input text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-action dark:focus:ring-action-dark"
-                  placeholder="owner@example.com"
-                />
+                <input type="email" value={newOrg.ownerEmail} onChange={(e) => setNewOrg({ ...newOrg, ownerEmail: e.target.value })} className="w-full px-3 py-2 bg-main dark:bg-main-dark border border-border dark:border-border-dark rounded-input text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-action dark:focus:ring-action-dark" placeholder="owner@example.com" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-text-secondary dark:text-text-secondary-dark mb-1">Owner Password</label>
-                <input
-                  type="password"
-                  value={newOrg.ownerPassword}
-                  onChange={(e) => setNewOrg({ ...newOrg, ownerPassword: e.target.value })}
-                  className="w-full px-3 py-2 bg-main dark:bg-main-dark border border-border dark:border-border-dark rounded-input text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-action dark:focus:ring-action-dark"
-                  placeholder="Min. 8 characters"
-                />
+                <input type="password" value={newOrg.ownerPassword} onChange={(e) => setNewOrg({ ...newOrg, ownerPassword: e.target.value })} className="w-full px-3 py-2 bg-main dark:bg-main-dark border border-border dark:border-border-dark rounded-input text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-action dark:focus:ring-action-dark" placeholder="Min. 8 characters" />
               </div>
             </div>
             <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="flex-1 px-4 py-2 border border-border dark:border-border-dark rounded-full text-text-secondary dark:text-text-secondary-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors text-sm font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreateOrg}
-                disabled={isSaving}
-                className="flex-1 px-4 py-2 bg-action dark:bg-action-dark text-white rounded-full text-sm font-bold hover:bg-action-hover dark:hover:bg-action-hover-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {isSaving ? (
-                  <><RefreshCw className="w-4 h-4 animate-spin" /> Creating...</>
-                ) : isSuccess ? (
-                  <><Check className="w-4 h-4" /> Created!</>
-                ) : (
-                  'Create Organisation'
-                )}
+              <button onClick={() => setShowCreateModal(false)} className="flex-1 px-4 py-2 border border-border dark:border-border-dark rounded-full text-text-secondary dark:text-text-secondary-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors text-sm font-medium">Cancel</button>
+              <button onClick={handleCreateOrg} disabled={isSaving} className="flex-1 px-4 py-2 bg-action dark:bg-action-dark text-white rounded-full text-sm font-bold hover:bg-action-hover dark:hover:bg-action-hover-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                {isSaving ? (<><RefreshCw className="w-4 h-4 animate-spin" /> Creating...</>) : isSuccess ? (<><Check className="w-4 h-4" /> Created!</>) : ('Create Organisation')}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Organisation Settings Modal */}
+      {editingOrg && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-card dark:bg-card-dark rounded-card shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-text-primary dark:text-text-primary-dark">Organisation Settings</h2>
+                <p className="text-sm text-text-muted dark:text-text-muted-dark mt-1">{editingOrg.name}</p>
+              </div>
+              <button onClick={() => { setEditingOrg(null); setOrgSettings(null); }} className="p-2 hover:bg-surface dark:hover:bg-surface-dark rounded-full text-text-muted dark:text-text-muted-dark">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {isLoadingSettings ? (
+              <div className="text-center py-12 text-text-muted dark:text-text-muted-dark">Loading settings...</div>
+            ) : orgSettings ? (
+              <div className="space-y-6">
+                {/* Organisation Name */}
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary dark:text-text-secondary-dark mb-1">Organisation Name</label>
+                  <input type="text" value={orgSettings.default_organisation || ''} onChange={(e) => setOrgSettings({ ...orgSettings, default_organisation: e.target.value })} className="w-full px-3 py-2 bg-main dark:bg-main-dark border border-border dark:border-border-dark rounded-input text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-action dark:focus:ring-action-dark" />
+                  <p className="text-xs text-text-muted dark:text-text-muted-dark mt-1">Applied to all cards in this organisation</p>
+                </div>
+
+                {/* User Customisation Controls */}
+                <div className="border border-border dark:border-border-dark rounded-input overflow-hidden">
+                  <div className="p-4 bg-surface dark:bg-surface-dark border-b border-border dark:border-border-dark">
+                    <h3 className="text-sm font-semibold text-text-primary dark:text-text-primary-dark">User Customisation Controls</h3>
+                    <p className="text-xs text-text-muted dark:text-text-muted-dark mt-1">Control what organisation users can customise on their cards</p>
+                  </div>
+                  <div className="p-4 space-y-4">
+                    <Toggle label="Theme Customisation" description="Allow users to choose theme colors from the palette" checked={orgSettings.allow_theme_customisation === true} onChange={(v) => setOrgSettings({ ...orgSettings, allow_theme_customisation: v })} />
+                    <Toggle label="Image Customisation" description="Allow users to upload custom avatars and banners" checked={orgSettings.allow_image_customisation === true} onChange={(v) => setOrgSettings({ ...orgSettings, allow_image_customisation: v })} />
+                    <Toggle label="Links Customisation" description="Allow users to add custom links to their cards" checked={orgSettings.allow_links_customisation === true} onChange={(v) => setOrgSettings({ ...orgSettings, allow_links_customisation: v })} />
+                    <Toggle label="Privacy Settings" description="Allow users to change privacy settings on their cards" checked={orgSettings.allow_privacy_customisation === true} onChange={(v) => setOrgSettings({ ...orgSettings, allow_privacy_customisation: v })} />
+                  </div>
+                </div>
+
+                {/* Profile Colors */}
+                <div className="border border-border dark:border-border-dark rounded-input overflow-hidden">
+                  <div className="p-4 bg-surface dark:bg-surface-dark border-b border-border dark:border-border-dark flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-semibold text-text-primary dark:text-text-primary-dark">Profile Colors</h3>
+                      <p className="text-xs text-text-muted dark:text-text-muted-dark mt-1">Color palette available to this organisation's cards</p>
+                    </div>
+                    <button onClick={handleAddColor} className="px-3 py-1.5 bg-action dark:bg-action-dark text-white rounded-full text-xs font-bold flex items-center gap-1 hover:bg-action-hover dark:hover:bg-action-hover-dark">
+                      <Plus className="w-3 h-3" /> Add Color
+                    </button>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    {(orgSettings.theme_colors || []).length === 0 ? (
+                      <p className="text-sm text-text-muted dark:text-text-muted-dark text-center py-4">No colors defined. Add a color to get started.</p>
+                    ) : (
+                      (orgSettings.theme_colors || []).map((color, idx) => (
+                        <div key={idx} className="flex items-center gap-3 p-3 bg-surface dark:bg-surface-dark rounded-input">
+                          <div className="w-8 h-8 rounded-full shrink-0 border border-border dark:border-border-dark" style={{ background: color.gradientStyle || color.hexBase || '#6366f1' }} />
+                          <input type="text" value={color.name || ''} onChange={(e) => handleUpdateColor(idx, 'name', e.target.value)} className="flex-1 px-2 py-1 text-sm bg-main dark:bg-main-dark border border-border dark:border-border-dark rounded text-text-primary dark:text-text-primary-dark" placeholder="Color name" />
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs text-text-muted dark:text-text-muted-dark">Base</label>
+                            <input type="color" value={color.hexBase || '#6366f1'} onChange={(e) => handleUpdateColor(idx, 'hexBase', e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0 p-0" />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs text-text-muted dark:text-text-muted-dark">Secondary</label>
+                            <input type="color" value={color.hexSecondary || color.hexBase || '#8b5cf6'} onChange={(e) => handleUpdateColor(idx, 'hexSecondary', e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0 p-0" />
+                          </div>
+                          <button onClick={() => handleRemoveColor(idx)} className="p-1.5 text-text-muted dark:text-text-muted-dark hover:text-red-500 dark:hover:text-red-400 rounded transition-colors" title="Remove color">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Save / Cancel */}
+                <div className="flex gap-3 pt-2">
+                  <button onClick={() => { setEditingOrg(null); setOrgSettings(null); }} className="flex-1 px-4 py-2 border border-border dark:border-border-dark rounded-full text-text-secondary dark:text-text-secondary-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors text-sm font-medium">Cancel</button>
+                  <button onClick={handleSaveSettings} disabled={isSavingSettings} className="flex-1 px-4 py-2 bg-action dark:bg-action-dark text-white rounded-full text-sm font-bold hover:bg-action-hover dark:hover:bg-action-hover-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                    {isSavingSettings ? (<><RefreshCw className="w-4 h-4 animate-spin" /> Saving...</>) : (<><Save className="w-4 h-4" /> Save Settings</>)}
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       )}
