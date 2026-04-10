@@ -381,7 +381,9 @@
     "orgColumn": "Organización",
     "noUsers": "No se encontraron usuarios",
     "description": "Administrar usuarios en todas las organizaciones",
-    "noOrganisation": "Sin organización"
+    "noOrganisation": "Sin organización",
+    "searchPlaceholder": "Buscar por correo...",
+    "allOrganisations": "Todas las organizaciones"
   },
   "errors": {
     "invalidUserUrl": "URL de usuario inválida",

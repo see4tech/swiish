@@ -3664,24 +3664,54 @@ app.get('/api/superadmin/users', requireAuth, requireSuperAdmin, apiLimiter, (re
   );
 });
 
-// PATCH change role of any user in any org (super admin only, cannot target super admins)
+// GET all organisations for super admin dropdowns
+app.get('/api/superadmin/organisations', requireAuth, requireSuperAdmin, apiLimiter, (req, res, next) => {
+  db.all('SELECT id, name FROM organisations ORDER BY name ASC', [], (err, rows) => {
+    if (err) return next(err);
+    res.json(rows);
+  });
+});
+
+// PATCH update role and/or organisation for any user (super admin only)
 app.patch('/api/superadmin/users/:userId', requireAuth, requireSuperAdmin, apiLimiter, csrfProtection, [
   param('userId').isUUID().withMessage('Invalid user ID'),
-  body('role').isIn(['owner', 'member']).withMessage('Role must be owner or member')
+  body('role').optional().isIn(['owner', 'member']).withMessage('Role must be owner or member'),
+  body('organisation_id').optional().isUUID().withMessage('Invalid organisation ID')
 ], handleValidationErrors, (req, res, next) => {
   const { userId } = req.params;
-  const { role } = req.body;
+  const { role, organisation_id } = req.body;
   if (userId === req.user.id) {
     return res.status(400).json({ error: 'errors.cannotChangeOwnRole' });
   }
-  db.get('SELECT id, role, is_super_admin FROM users WHERE id = ?', [userId], (err, user) => {
+  db.get('SELECT id, role, organisation_id, is_super_admin FROM users WHERE id = ?', [userId], (err, user) => {
     if (err) return next(err);
     if (!user) return res.status(404).json({ error: 'errors.userNotFound' });
     if (user.is_super_admin) return res.status(403).json({ error: 'errors.unauthorized' });
-    db.run('UPDATE users SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [role, userId], (err) => {
-      if (err) return next(err);
-      res.json({ success: true });
-    });
+
+    const newRole = role || user.role;
+    const newOrgId = organisation_id !== undefined ? organisation_id : user.organisation_id;
+
+    // If org is changing, verify the target org exists
+    const doUpdate = () => {
+      db.run(
+        'UPDATE users SET role = ?, organisation_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [newRole, newOrgId, userId],
+        (err) => {
+          if (err) return next(err);
+          res.json({ success: true });
+        }
+      );
+    };
+
+    if (organisation_id && organisation_id !== user.organisation_id) {
+      db.get('SELECT id FROM organisations WHERE id = ?', [organisation_id], (err, org) => {
+        if (err) return next(err);
+        if (!org) return res.status(404).json({ error: 'errors.organisationNotFound' });
+        doUpdate();
+      });
+    } else {
+      doUpdate();
+    }
   });
 });
 

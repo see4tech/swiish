@@ -381,7 +381,9 @@
     "orgColumn": "Organisation",
     "noUsers": "No users found",
     "description": "Manage users across all organisations",
-    "noOrganisation": "No Organisation"
+    "noOrganisation": "No Organisation",
+    "searchPlaceholder": "Search by email...",
+    "allOrganisations": "All Organisations"
   },
   "errors": {
     "invalidUserUrl": "Invalid User URL",

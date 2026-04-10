@@ -6025,19 +6025,23 @@ function PlatformAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm 
 function SuperAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm }) {
   const { t } = useTranslation();
   const [users, setUsers] = useState([]);
+  const [organisations, setOrganisations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingUserId, setEditingUserId] = useState(null);
+  const [editDraft, setEditDraft] = useState({});
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [filterOrg, setFilterOrg] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const fetchUsers = async () => {
+  const fetchAll = async () => {
     setIsLoading(true);
     try {
-      const res = await apiCall(`${API_ENDPOINT}/superadmin/users`);
-      if (res.ok) {
-        const data = await res.json();
-        setUsers(data);
-      } else {
-        showAlert(t('errors.loadUsersFailed'), 'error');
-      }
+      const [usersRes, orgsRes] = await Promise.all([
+        apiCall(`${API_ENDPOINT}/superadmin/users`),
+        apiCall(`${API_ENDPOINT}/superadmin/organisations`)
+      ]);
+      if (usersRes.ok) setUsers(await usersRes.json());
+      if (orgsRes.ok) setOrganisations(await orgsRes.json());
     } catch (e) {
       showAlert(t('errors.loadUsersError'), 'error');
     } finally {
@@ -6045,25 +6049,35 @@ function SuperAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm }) 
     }
   };
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => { fetchAll(); }, []);
 
-  const handleRoleChange = async (userId, role) => {
+  const startEdit = (user) => {
+    setEditingUserId(user.id);
+    setEditDraft({ role: user.role, organisation_id: user.organisation_id || '' });
+  };
+
+  const cancelEdit = () => { setEditingUserId(null); setEditDraft({}); };
+
+  const saveEdit = async (userId) => {
+    setIsSavingEdit(true);
     try {
       const res = await apiCall(`${API_ENDPOINT}/superadmin/users/${userId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-        body: JSON.stringify({ role })
+        body: JSON.stringify(editDraft)
       });
       if (res.ok) {
         showAlert(t('users.roleUpdated'), 'success');
-        setEditingUserId(null);
-        fetchUsers();
+        cancelEdit();
+        fetchAll();
       } else {
         const err = await res.json().catch(() => ({}));
         showAlert(t(err.error || 'errors.updateRoleFailed'), 'error');
       }
     } catch {
       showAlert(t('errors.updateRoleError'), 'error');
+    } finally {
+      setIsSavingEdit(false);
     }
   };
 
@@ -6076,7 +6090,8 @@ function SuperAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm }) 
         });
         if (res.ok) {
           showAlert(t('users.userDeleted'), 'success');
-          fetchUsers();
+          if (editingUserId === userId) cancelEdit();
+          fetchAll();
         } else {
           const err = await res.json().catch(() => ({}));
           showAlert(t(err.error || 'errors.deleteUserFailed'), 'error');
@@ -6087,106 +6102,165 @@ function SuperAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm }) 
     });
   };
 
-  // Group users by organisation
-  const grouped = users.reduce((acc, user) => {
-    const orgName = user.organisation_name || t('superAdmin.noOrganisation');
-    if (!acc[orgName]) acc[orgName] = [];
-    acc[orgName].push(user);
-    return acc;
-  }, {});
+  const filteredUsers = users.filter(u => {
+    const matchOrg = filterOrg === 'all' || u.organisation_id === filterOrg;
+    const matchSearch = !searchTerm || u.email.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchOrg && matchSearch;
+  });
+
+  const orgOptions = [{ id: '', name: t('superAdmin.noOrganisation') }, ...organisations];
 
   return (
     <div className="min-h-screen bg-bg dark:bg-bg-dark">
-      <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto px-4 py-8">
+
         {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
+        <div className="flex items-center gap-4 mb-6">
           <button onClick={onBack} className="p-2 rounded-full hover:bg-surface dark:hover:bg-surface-dark transition-colors text-text-secondary dark:text-text-secondary-dark">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div>
+          <div className="flex-1">
             <h1 className="text-2xl font-bold text-text-primary dark:text-text-primary-dark flex items-center gap-2">
               <ShieldAlert className="w-6 h-6 text-purple-600 dark:text-purple-400" />
               {t('superAdmin.title')}
             </h1>
-            <p className="text-sm text-text-secondary dark:text-text-muted-dark mt-1">{t('superAdmin.description')}</p>
+            <p className="text-sm text-text-secondary dark:text-text-muted-dark mt-0.5">
+              {t('superAdmin.description')} — {users.length} {users.length !== 1 ? t('platform.users') : t('platform.user')}
+            </p>
           </div>
         </div>
 
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row gap-3 mb-6">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              placeholder={t('superAdmin.searchPlaceholder')}
+              className="w-full pl-9 pr-4 py-2.5 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark text-sm"
+            />
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted dark:text-text-muted-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <select
+            value={filterOrg}
+            onChange={e => setFilterOrg(e.target.value)}
+            className="px-4 py-2.5 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark text-sm"
+          >
+            <option value="all">{t('superAdmin.allOrganisations')}</option>
+            {organisations.map(org => (
+              <option key={org.id} value={org.id}>{org.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* User list */}
         {isLoading ? (
-          <div className="text-center py-12 text-text-secondary dark:text-text-muted-dark">{t('common.loading')}</div>
-        ) : users.length === 0 ? (
-          <div className="text-center py-12 text-text-muted dark:text-text-muted-dark">{t('superAdmin.noUsers')}</div>
+          <div className="text-center py-16 text-text-secondary dark:text-text-muted-dark">{t('common.loading')}</div>
+        ) : filteredUsers.length === 0 ? (
+          <div className="text-center py-16 text-text-muted dark:text-text-muted-dark">{t('superAdmin.noUsers')}</div>
         ) : (
-          <div className="space-y-6">
-            {Object.entries(grouped).map(([orgName, orgUsers]) => (
-              <div key={orgName} className="bg-card dark:bg-card-dark rounded-input shadow-sm border border-border dark:border-border-dark overflow-hidden">
-                <div className="p-4 border-b border-border dark:border-border-dark bg-surface dark:bg-surface-dark flex items-center gap-3">
-                  <Shield className="w-4 h-4 text-text-muted dark:text-text-muted-dark" />
-                  <div>
-                    <span className="font-semibold text-text-primary dark:text-text-primary-dark">{orgName}</span>
-                    <span className="ml-2 text-xs text-text-muted dark:text-text-muted-dark">
-                      {orgUsers.length} {orgUsers.length !== 1 ? t('platform.users') : t('platform.user')}
-                    </span>
-                  </div>
-                </div>
-                <div className="divide-y divide-border dark:divide-border-dark">
-                  {orgUsers.map(user => (
-                    <div key={user.id} className="p-4 flex items-center justify-between hover:bg-surface dark:hover:bg-surface-dark/50 transition-colors">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="w-9 h-9 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
-                          <User className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="font-medium text-text-primary dark:text-text-primary-dark truncate">{user.email}</div>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-badge text-xs font-medium ${
-                              user.role === 'owner'
-                                ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
-                                : 'bg-surface dark:bg-surface-dark text-text-primary dark:text-text-secondary-dark'
-                            }`}>
-                              {user.role === 'owner' ? t('common.owner') : t('common.member')}
-                            </span>
-                            <span className="text-xs text-text-muted dark:text-text-muted-dark">{t('users.joined', { date: new Date(user.created_at).toLocaleDateString() })}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 ml-4 shrink-0">
-                        {editingUserId === user.id ? (
-                          <>
+          <div className="bg-card dark:bg-card-dark rounded-card shadow-sm border border-border dark:border-border-dark overflow-hidden">
+            {/* Column headers */}
+            <div className="hidden md:grid grid-cols-[1fr_1fr_150px_130px] gap-4 px-6 py-3 bg-surface dark:bg-surface-dark border-b border-border dark:border-border-dark text-xs font-semibold text-text-muted dark:text-text-muted-dark uppercase tracking-wide">
+              <span>{t('common.email')}</span>
+              <span>{t('superAdmin.orgColumn')}</span>
+              <span>{t('common.role')}</span>
+              <span>{t('common.actions')}</span>
+            </div>
+
+            <div className="divide-y divide-border dark:divide-border-dark">
+              {filteredUsers.map(user => {
+                const isEditing = editingUserId === user.id;
+                return (
+                  <div key={user.id} className={`px-4 md:px-6 py-4 transition-colors ${isEditing ? 'bg-indigo-50 dark:bg-indigo-900/10' : 'hover:bg-surface dark:hover:bg-surface-dark/50'}`}>
+                    {isEditing ? (
+                      <div className="space-y-3">
+                        <div className="font-medium text-text-primary dark:text-text-primary-dark text-sm">{user.email}</div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-xs font-medium text-text-muted dark:text-text-muted-dark mb-1 block">{t('superAdmin.orgColumn')}</label>
                             <select
-                              defaultValue={user.role}
-                              onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                              className="px-3 py-1.5 text-sm rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark"
+                              value={editDraft.organisation_id}
+                              onChange={e => setEditDraft({ ...editDraft, organisation_id: e.target.value })}
+                              className="w-full px-3 py-2 text-sm rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark"
+                            >
+                              {orgOptions.map(org => (
+                                <option key={org.id} value={org.id}>{org.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-xs font-medium text-text-muted dark:text-text-muted-dark mb-1 block">{t('common.role')}</label>
+                            <select
+                              value={editDraft.role}
+                              onChange={e => setEditDraft({ ...editDraft, role: e.target.value })}
+                              className="w-full px-3 py-2 text-sm rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark"
                             >
                               <option value="member">{t('common.member')}</option>
                               <option value="owner">{t('common.owner')}</option>
                             </select>
-                            <button onClick={() => setEditingUserId(null)} className="px-3 py-1.5 text-sm bg-surface dark:bg-surface-dark text-text-primary dark:text-text-secondary-dark rounded-button hover:bg-surface dark:hover:bg-surface-dark">
-                              {t('common.cancel')}
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => setEditingUserId(user.id)}
-                              className="px-3 py-1.5 text-sm bg-surface dark:bg-surface-dark text-text-primary dark:text-text-secondary-dark rounded-button hover:bg-surface dark:hover:bg-surface-dark flex items-center gap-1"
-                            >
-                              <Edit3 className="w-3 h-3" /> {t('users.changeRole')}
-                            </button>
-                            <button
-                              onClick={() => handleDelete(user.id, user.email)}
-                              className="px-3 py-1.5 text-sm bg-error-bg dark:bg-error-bg-dark text-error dark:text-error-text-dark rounded-badge hover:bg-error-bg dark:hover:bg-error-bg-dark flex items-center gap-1"
-                            >
-                              <Trash2 className="w-3 h-3" /> {t('common.delete')}
-                            </button>
-                          </>
-                        )}
+                          </div>
+                        </div>
+                        <div className="flex gap-2 pt-1">
+                          <button
+                            onClick={() => saveEdit(user.id)}
+                            disabled={isSavingEdit}
+                            className="px-4 py-1.5 text-sm bg-confirm dark:bg-confirm-dark text-confirm-text dark:text-confirm-text-dark rounded-button font-medium hover:bg-confirm-hover dark:hover:bg-confirm-hover-dark disabled:opacity-50 flex items-center gap-1"
+                          >
+                            {isSavingEdit ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                            {t('common.save')}
+                          </button>
+                          <button onClick={cancelEdit} className="px-4 py-1.5 text-sm bg-surface dark:bg-surface-dark text-text-secondary dark:text-text-secondary-dark rounded-button border border-border dark:border-border-dark hover:bg-card dark:hover:bg-card-dark">
+                            {t('common.cancel')}
+                          </button>
+                          <button
+                            onClick={() => handleDelete(user.id, user.email)}
+                            className="ml-auto px-4 py-1.5 text-sm bg-error-bg dark:bg-error-bg-dark text-error dark:text-error-text-dark rounded-badge flex items-center gap-1"
+                          >
+                            <Trash2 className="w-3 h-3" /> {t('common.delete')}
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
+                    ) : (
+                      <div className="flex flex-col md:grid md:grid-cols-[1fr_1fr_150px_130px] md:items-center gap-2 md:gap-4">
+                        <div className="font-medium text-text-primary dark:text-text-primary-dark text-sm truncate">{user.email}</div>
+                        <div className="text-sm text-text-secondary dark:text-text-muted-dark truncate flex items-center gap-1.5">
+                          <Shield className="w-3.5 h-3.5 shrink-0 text-text-muted dark:text-text-muted-dark" />
+                          {user.organisation_name || <span className="italic text-text-muted dark:text-text-muted-dark">{t('superAdmin.noOrganisation')}</span>}
+                        </div>
+                        <div>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-badge text-xs font-medium ${
+                            user.role === 'owner'
+                              ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                              : 'bg-surface dark:bg-surface-dark text-text-primary dark:text-text-secondary-dark border border-border dark:border-border-dark'
+                          }`}>
+                            {user.role === 'owner' ? t('common.owner') : t('common.member')}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => startEdit(user)}
+                            className="px-3 py-1.5 text-xs bg-surface dark:bg-surface-dark text-text-primary dark:text-text-secondary-dark rounded-button border border-border dark:border-border-dark hover:bg-card dark:hover:bg-card-dark flex items-center gap-1"
+                          >
+                            <Edit3 className="w-3 h-3" /> {t('common.edit')}
+                          </button>
+                          <button
+                            onClick={() => handleDelete(user.id, user.email)}
+                            className="p-1.5 text-text-muted dark:text-text-muted-dark hover:text-error dark:hover:text-error-text-dark hover:bg-error-bg dark:hover:bg-error-bg-dark rounded-full transition-colors"
+                            title={t('common.delete')}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
