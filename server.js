@@ -657,6 +657,57 @@ app.get('/api/demo/status', apiLimiter, (req, res) => {
   });
 });
 
+// Shared helper: create an organisation + owner user + default settings.
+// isPlatformAdmin: whether the new owner should also be a platform admin (true for setup, false for platform-created orgs).
+// Returns a promise that resolves with { orgId, userId }.
+async function createOrgWithOwner(organisationName, ownerEmail, ownerPassword, isPlatformAdmin) {
+  const orgId = require('crypto').randomUUID();
+  const userId = require('crypto').randomUUID();
+
+  // Generate slug from name (same logic used everywhere else)
+  const baseSlug = organisationName.toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+/, '')
+    .replace(/-+$/, '')
+    || 'organisation';
+
+  // Find an available slug (handles collisions by appending a counter)
+  const slug = await new Promise((resolve, reject) => {
+    const trySlug = (counter) => {
+      const candidate = counter === 0 ? baseSlug : `${baseSlug}-${counter}`;
+      db.get("SELECT id FROM organisations WHERE slug = ?", [candidate], (err, row) => {
+        if (err) return reject(err);
+        if (row) return trySlug(counter + 1);
+        resolve(candidate);
+      });
+    };
+    trySlug(0);
+  });
+
+  const passwordHash = await bcrypt.hash(ownerPassword, 10);
+
+  await dbRun(
+    `INSERT INTO organisations (id, name, slug, subscription_tier) VALUES (?, ?, ?, ?)`,
+    [orgId, organisationName, slug, 'individual']
+  );
+
+  await dbRun(
+    `INSERT INTO users (id, email, password_hash, organisation_id, role, email_verified, is_platform_admin) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [userId, ownerEmail.toLowerCase(), passwordHash, orgId, 'owner', 0, isPlatformAdmin ? 1 : 0]
+  );
+
+  const defaultColors = getDefaultThemeColors();
+  await dbRun("INSERT INTO organisation_settings (organisation_id, key, value, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)", [orgId, 'default_organisation', organisationName]);
+  await dbRun("INSERT INTO organisation_settings (organisation_id, key, value, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)", [orgId, 'theme_colors', JSON.stringify(defaultColors)]);
+  await dbRun("INSERT INTO organisation_settings (organisation_id, key, value, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)", [orgId, 'allow_theme_customisation', 'true']);
+  await dbRun("INSERT INTO organisation_settings (organisation_id, key, value, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)", [orgId, 'allow_image_customisation', 'true']);
+  await dbRun("INSERT INTO organisation_settings (organisation_id, key, value, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)", [orgId, 'allow_links_customisation', 'true']);
+  await dbRun("INSERT INTO organisation_settings (organisation_id, key, value, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)", [orgId, 'allow_privacy_customisation', 'true']);
+
+  return { orgId, userId };
+}
+
 app.post('/api/setup/initialize', apiLimiter, csrfProtection, [
   body('organisationName').trim().isLength({ min: 1, max: 200 }).withMessage('Organisation name is required and must be less than 200 characters'),
   body('adminEmail').isEmail({ allow_display_name: false, require_tld: false }).withMessage('Valid email required'),
@@ -668,93 +719,35 @@ app.post('/api/setup/initialize', apiLimiter, csrfProtection, [
     if (row.count > 0) {
       return res.status(403).json({ error: 'Setup already completed' });
     }
-    
+
     const { organisationName, adminEmail, adminPassword } = req.body;
-    
-    // Generate organisation slug from name
-    // Fix ReDoS: use separate replace calls instead of alternation in single regex
-    const orgSlug = organisationName.toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+/, '')  // Remove leading dashes (no alternation)
-      .replace(/-+$/, '')  // Remove trailing dashes (no alternation)
-      || 'organisation';
-    
-    // Find available slug (shouldn't be needed on fresh install, but be safe)
-    const findAvailableSlug = (slug, counter = 0) => {
-      const finalSlug = counter === 0 ? slug : `${orgSlug}-${counter}`;
-      db.get("SELECT id FROM organisations WHERE slug = ?", [finalSlug], (err, existingOrg) => {
-        if (err) return next(err);
-        if (existingOrg) {
-          findAvailableSlug(slug, counter + 1);
-        } else {
-          createOrgAndUser(finalSlug);
-        }
+
+    try {
+      const { orgId, userId } = await createOrgWithOwner(organisationName, adminEmail, adminPassword, true);
+
+      // Generate JWT token
+      const token = jwt.sign(
+        {
+          user_id: userId,
+          organisation_id: orgId,
+          role: 'owner',
+          is_platform_admin: true
+        },
+        JWT_SECRET,
+        { expiresIn: JWT_EXPIRES_IN }
+      );
+
+      // Set httpOnly cookie
+      res.cookie('authToken', token, {
+        httpOnly: true,
+        secure: NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
       });
-    };
-    
-    findAvailableSlug(orgSlug);
-    
-    async function createOrgAndUser(slug) {
-      const orgId = require('crypto').randomUUID();
-      const userId = require('crypto').randomUUID();
-      
-      try {
-        const passwordHash = await bcrypt.hash(adminPassword, 10);
-        
-        // Create organisation
-        db.run(`
-          INSERT INTO organisations (id, name, slug, subscription_tier)
-          VALUES (?, ?, ?, ?)
-        `, [orgId, organisationName, slug, 'individual'], (err) => {
-          if (err) return next(err);
-          
-          // Create admin user (also platform admin — the first user is always platform admin)
-          db.run(`
-            INSERT INTO users (id, email, password_hash, organisation_id, role, email_verified, is_platform_admin)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-          `, [userId, adminEmail.toLowerCase(), passwordHash, orgId, 'owner', 0, 1], async (err) => {
-            if (err) return next(err);
-            
-            // Initialize default organisation settings
-            const defaultColors = getDefaultThemeColors();
-            try {
-              await dbRun("INSERT INTO organisation_settings (organisation_id, key, value, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)", [orgId, 'default_organisation', organisationName]);
-              await dbRun("INSERT INTO organisation_settings (organisation_id, key, value, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)", [orgId, 'theme_colors', JSON.stringify(defaultColors)]);
-              await dbRun("INSERT INTO organisation_settings (organisation_id, key, value, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)", [orgId, 'allow_theme_customisation', 'true']);
-              await dbRun("INSERT INTO organisation_settings (organisation_id, key, value, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)", [orgId, 'allow_image_customisation', 'true']);
-              await dbRun("INSERT INTO organisation_settings (organisation_id, key, value, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)", [orgId, 'allow_links_customisation', 'true']);
-              await dbRun("INSERT INTO organisation_settings (organisation_id, key, value, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)", [orgId, 'allow_privacy_customisation', 'true']);
-            } catch (err) {
-              return next(err);
-            }
-            
-            // Generate JWT token
-            const token = jwt.sign(
-              {
-                user_id: userId,
-                organisation_id: orgId,
-                role: 'owner',
-                is_platform_admin: true
-              },
-              JWT_SECRET,
-              { expiresIn: JWT_EXPIRES_IN }
-            );
-            
-            // Set httpOnly cookie
-            res.cookie('authToken', token, {
-              httpOnly: true,
-              secure: NODE_ENV === 'production',
-              sameSite: 'strict',
-              maxAge: 24 * 60 * 60 * 1000 // 24 hours
-            });
-            
-            res.json({ success: true, userId, email: adminEmail.toLowerCase(), role: 'owner' });
-          });
-        });
-      } catch (err) {
-        return next(err);
-      }
+
+      res.json({ success: true, userId, email: adminEmail.toLowerCase(), role: 'owner' });
+    } catch (err) {
+      return next(err);
     }
   });
 });
@@ -3360,67 +3353,11 @@ app.post('/api/platform/organisations', requireAuth, requirePlatformAdmin, apiLi
       return res.status(400).json({ error: 'A user with this email already exists' });
     }
 
-    // Generate org slug
-    const baseSlug = organisationName.toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+/, '')
-      .replace(/-+$/, '')
-      || 'organisation';
-
-    const findAvailableSlug = (slug, counter = 0) => {
-      const finalSlug = counter === 0 ? slug : `${baseSlug}-${counter}`;
-      db.get("SELECT id FROM organisations WHERE slug = ?", [finalSlug], (err, existingOrg) => {
-        if (err) return next(err);
-        if (existingOrg) {
-          findAvailableSlug(slug, counter + 1);
-        } else {
-          createOrgAndOwner(finalSlug);
-        }
-      });
-    };
-
-    findAvailableSlug(baseSlug);
-
-    async function createOrgAndOwner(slug) {
-      const orgId = require('crypto').randomUUID();
-      const userId = require('crypto').randomUUID();
-
-      try {
-        const passwordHash = await bcrypt.hash(ownerPassword, 10);
-
-        db.run(
-          `INSERT INTO organisations (id, name, slug, subscription_tier) VALUES (?, ?, ?, ?)`,
-          [orgId, organisationName, slug, 'individual'],
-          async (err) => {
-            if (err) return next(err);
-
-            db.run(
-              `INSERT INTO users (id, email, password_hash, organisation_id, role, email_verified, is_platform_admin) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-              [userId, ownerEmail.toLowerCase(), passwordHash, orgId, 'owner', 0, 0],
-              async (err) => {
-                if (err) return next(err);
-
-                const defaultColors = getDefaultThemeColors();
-                try {
-                  await dbRun("INSERT INTO organisation_settings (organisation_id, key, value, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)", [orgId, 'default_organisation', organisationName]);
-                  await dbRun("INSERT INTO organisation_settings (organisation_id, key, value, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)", [orgId, 'theme_colors', JSON.stringify(defaultColors)]);
-                  await dbRun("INSERT INTO organisation_settings (organisation_id, key, value, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)", [orgId, 'allow_theme_customisation', 'true']);
-                  await dbRun("INSERT INTO organisation_settings (organisation_id, key, value, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)", [orgId, 'allow_image_customisation', 'true']);
-                  await dbRun("INSERT INTO organisation_settings (organisation_id, key, value, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)", [orgId, 'allow_links_customisation', 'true']);
-                  await dbRun("INSERT INTO organisation_settings (organisation_id, key, value, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)", [orgId, 'allow_privacy_customisation', 'true']);
-                } catch (err) {
-                  return next(err);
-                }
-
-                res.json({ success: true, orgId, userId, orgName: organisationName, ownerEmail: ownerEmail.toLowerCase() });
-              }
-            );
-          }
-        );
-      } catch (err) {
-        return next(err);
-      }
+    try {
+      const { orgId, userId } = await createOrgWithOwner(organisationName, ownerEmail, ownerPassword, false);
+      res.json({ success: true, orgId, userId, orgName: organisationName, ownerEmail: ownerEmail.toLowerCase() });
+    } catch (err) {
+      return next(err);
     }
   });
 });
@@ -3440,16 +3377,28 @@ app.delete('/api/platform/organisations/:orgId', requireAuth, requirePlatformAdm
     if (err) return next(err);
     if (!org) return res.status(404).json({ error: 'Organisation not found' });
 
-    // Delete users first (cascades their cards, user_settings, password_reset_tokens, email_verification_tokens)
-    db.run("DELETE FROM users WHERE organisation_id = ?", [orgId], (err) => {
-      if (err) return next(err);
-
-      // Delete the organisation (cascades organisation_settings, invitations, audit_log)
-      db.run("DELETE FROM organisations WHERE id = ?", [orgId], (err) => {
+    // Prevent deleting an org that contains other platform admins
+    db.get(
+      "SELECT id FROM users WHERE organisation_id = ? AND is_platform_admin = 1 LIMIT 1",
+      [orgId],
+      (err, platformAdminInOrg) => {
         if (err) return next(err);
-        res.json({ success: true });
-      });
-    });
+        if (platformAdminInOrg) {
+          return res.status(400).json({ error: 'Cannot delete an organisation that contains a platform admin' });
+        }
+
+        // Delete users first (cascades their cards, user_settings, password_reset_tokens, email_verification_tokens)
+        db.run("DELETE FROM users WHERE organisation_id = ?", [orgId], (err) => {
+          if (err) return next(err);
+
+          // Delete the organisation (cascades organisation_settings, invitations, audit_log)
+          db.run("DELETE FROM organisations WHERE id = ?", [orgId], (err) => {
+            if (err) return next(err);
+            res.json({ success: true });
+          });
+        });
+      }
+    );
   });
 });
 
