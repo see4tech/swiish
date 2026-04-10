@@ -17,6 +17,7 @@ import { DndContext, PointerSensor, closestCenter, useSensor, useSensors } from 
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { arrayMove } from '@dnd-kit/sortable';
+import { useTranslation } from 'react-i18next';
 
 const API_ENDPOINT = '/api';
 const APP_VERSION = require('../package.json').version; // Automatically read from package.json
@@ -84,49 +85,54 @@ const applyThemeCssVars = (variant) => {
 // --- QR PAYLOAD STORAGE KEYS ---
 const QR_STORAGE_KEY = 'swiish:lastQrPayload';
 
-// Build a vCard string for QR code encoding (simplified for reliable scanning)
+// Build a vCard string for QR code encoding (full contact details)
 // When scanned, this will add the contact directly to the phone
 const buildQrPayload = (shortCode, data) => {
-  const { personal = {}, contact = {} } = data || {};
+  const { personal = {}, contact = {}, social = {} } = data || {};
 
   const safe = (v, maxLen = 120) => sanitizeText(v || '').substring(0, maxLen);
-  
-  const firstName = safe(personal.firstName || '', 40);
-  const lastName = safe(personal.lastName || '', 40);
+
+  const firstName = safe(personal.firstName, 40);
+  const lastName = safe(personal.lastName, 40);
   const fullName = `${firstName} ${lastName}`.trim();
-  const company = safe(personal.company || '', 80);
-  const email = safe(contact.email || '', 120);
-  const phone = safe(contact.phone || '', 50);
+  const company = safe(personal.company, 80);
+  const title = safe(personal.title, 80);
+  const email = safe(contact.email, 120);
+  const phone = safe(contact.phone, 50);
+  const website = safe(contact.website, 200);
+  const bio = safe(personal.bio, 200);
+  const location = safe(personal.location, 100);
 
   // Use short code for QR URL (always use short code for simpler QR)
   const cardUrl = typeof window !== 'undefined' && shortCode
     ? `${window.location.origin}/${shortCode}`
     : '';
 
-  // Build vCard 3.0 format (minimal for QR scanning reliability)
+  // Build vCard 3.0 format with full contact details
   let vcard = 'BEGIN:VCARD\nVERSION:3.0\n';
-  
+
   if (fullName) {
     vcard += `FN:${fullName}\n`;
     vcard += `N:${lastName};${firstName};;;\n`;
   }
-  
-  if (company) {
-    vcard += `ORG:${company}\n`;
-  }
-  
-  if (email) {
-    vcard += `EMAIL;TYPE=WORK:${email}\n`;
-  }
-  
-  if (phone) {
-    vcard += `TEL;TYPE=CELL:${phone}\n`;
-  }
-  
-  if (cardUrl) {
-    vcard += `URL:${cardUrl}\n`;
-  }
-  
+  if (company) vcard += `ORG:${company}\n`;
+  if (title) vcard += `TITLE:${title}\n`;
+  if (email) vcard += `EMAIL;TYPE=WORK:${email}\n`;
+  if (phone) vcard += `TEL;TYPE=CELL:${phone}\n`;
+  if (website) vcard += `URL:${website}\n`;
+  if (location) vcard += `ADR;TYPE=WORK:;;${location};;;;\n`;
+
+  // Social links + bio in NOTE field (vCard 3.0 doesn't have native social fields)
+  const socialLines = [];
+  if (social.linkedin) socialLines.push(`LinkedIn: ${safe(social.linkedin, 100)}`);
+  if (social.twitter) socialLines.push(`Twitter: ${safe(social.twitter, 100)}`);
+  if (social.instagram) socialLines.push(`Instagram: ${safe(social.instagram, 100)}`);
+  if (social.github) socialLines.push(`GitHub: ${safe(social.github, 100)}`);
+  const noteContent = [bio, ...socialLines].filter(Boolean).join('\\n');
+  if (noteContent) vcard += `NOTE:${noteContent}\n`;
+
+  if (cardUrl) vcard += `URL;TYPE=PREF:${cardUrl}\n`;
+
   vcard += 'END:VCARD';
 
   return vcard;
@@ -332,7 +338,11 @@ const extractBaseColorFromGradient = (gradient) => {
 };
 
 // Modal Component
-function Modal({ isOpen, onClose, type = 'info', title, message, onConfirm, confirmText = 'OK', cancelText = 'Cancel', inputLabel, inputPlaceholder, inputValue, onInputChange }) {
+function Modal({ isOpen, onClose, type = 'info', title, message, onConfirm, confirmText, cancelText, inputLabel, inputPlaceholder, inputValue, onInputChange }) {
+  const { t } = useTranslation();
+  // Apply translation defaults for confirmText/cancelText
+  const resolvedConfirmText = confirmText || t('common.ok');
+  const resolvedCancelText = cancelText || t('common.cancel');
   if (!isOpen) return null;
 
   const typeStyles = {
@@ -391,7 +401,7 @@ function Modal({ isOpen, onClose, type = 'info', title, message, onConfirm, conf
               onClick={onClose}
               className="flex-1 px-4 py-2.5 rounded-full font-medium text-text-secondary dark:text-text-secondary-dark bg-surface dark:bg-surface-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors"
             >
-              {cancelText}
+              {resolvedCancelText}
             </button>
           )}
           <button
@@ -403,7 +413,7 @@ function Modal({ isOpen, onClose, type = 'info', title, message, onConfirm, conf
               'bg-info dark:bg-info-dark hover:bg-info-hover dark:hover:bg-info-hover-dark'
             }`}
           >
-            {confirmText}
+            {resolvedConfirmText}
           </button>
         </div>
       </div>
@@ -412,6 +422,7 @@ function Modal({ isOpen, onClose, type = 'info', title, message, onConfirm, conf
 }
 
 function VersionBadge() {
+  const { t } = useTranslation();
   const [isOutdated, setIsOutdated] = useState(false);
   const [isAhead, setIsAhead] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
@@ -541,12 +552,12 @@ function VersionBadge() {
   
   // Build the tooltip
   const tooltip = (!isOutdated && !isAhead && !showBranch)
-    ? "You are on the latest release"
+    ? t('version.youAreOnLatest')
     : (isAhead || showBranch)
-      ? "You are on an unreleased development version - things may break"
+      ? t('version.unreleasedDev')
       : isOutdated
-        ? "Update available on GitHub"
-        : "View on GitHub";
+        ? t('version.updateAvailable')
+        : t('version.viewOnGithub');
 
   return (
     <div className="fixed bottom-4 left-4 z-50">
@@ -571,7 +582,43 @@ function VersionBadge() {
   );
 }
 
+function LanguageSelector({ csrfToken }) {
+  const { i18n } = useTranslation();
+
+  const handleChange = async (lang) => {
+    i18n.changeLanguage(lang);
+    document.documentElement.lang = lang;
+    // Persist to server (silently ignore failures — localStorage already updated)
+    try {
+      await fetch('/api/user/language', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({ language: lang }),
+      });
+    } catch {
+      // no-op
+    }
+  };
+
+  const currentLang = i18n.language ? i18n.language.substring(0, 2) : 'en';
+
+  return (
+    <button
+      onClick={() => handleChange(currentLang === 'es' ? 'en' : 'es')}
+      className="px-3 py-2 md:px-4 md:py-3 rounded-full font-medium text-text-muted dark:text-text-muted-dark bg-card dark:bg-card-dark border border-border dark:border-border-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors whitespace-nowrap text-sm md:text-base"
+      title={currentLang === 'es' ? 'Switch to English' : 'Cambiar a Español'}
+    >
+      {currentLang === 'es' ? 'EN' : 'ES'}
+    </button>
+  );
+}
+
 export default function App() {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   // Note: useParams() doesn't work at App level (Routes are children), so we extract params from location.pathname
@@ -713,10 +760,10 @@ export default function App() {
         <div className="flex items-center justify-center gap-3">
           <span className="text-2xl">🛠️</span>
           <span className="font-semibold text-amber-900 dark:text-amber-100">
-            Demo Mode
+            {t('demoMode.demoMode')}
           </span>
           <span className="text-sm text-amber-700 dark:text-amber-300">
-            All changes reset every {demoResetInterval} minutes
+            {t('demoMode.resetInterval', { minutes: demoResetInterval })}
           </span>
         </div>
       </div>
@@ -725,10 +772,10 @@ export default function App() {
 
   // Helper functions to show modals
   const showAlert = (message, type = 'info', title = '', onClose = null) => {
-    setModal({ isOpen: true, type, title, message, onConfirm: null, onClose, confirmText: 'OK', cancelText: 'Cancel' });
+    setModal({ isOpen: true, type, title, message, onConfirm: null, onClose, confirmText: t('common.ok'), cancelText: t('common.cancel') });
   };
 
-  const showConfirm = (message, onConfirm, title = 'Confirm', confirmText = 'Confirm', cancelText = 'Cancel') => {
+  const showConfirm = (message, onConfirm, title = t('common.confirm'), confirmText = t('common.confirm'), cancelText = t('common.cancel')) => {
     setModal({ isOpen: true, type: 'confirm', title, message, onConfirm, onClose: null, confirmText, cancelText });
   };
 
@@ -1023,6 +1070,12 @@ const [settings, setSettings] = useState({
         setCurrentUserId(userData.id);
         setCurrentUserEmail(userData.email);
         setIsPlatformAdmin(userData.isPlatformAdmin === true);
+
+        // Sync language preference from server
+        const userLang = userData.language || userData.orgDefaultLanguage || 'en';
+        if (i18n.language !== userLang) {
+          i18n.changeLanguage(userLang);
+        }
 
         // Fetch cards
         const res = await apiCall(`${API_ENDPOINT}/admin/cards`);
@@ -1368,10 +1421,10 @@ const [settings, setSettings] = useState({
         }
       } else {
         const errorData = await res.json().catch(() => ({}));
-        setError(errorData.error || 'Invalid email or password');
+        setError(errorData.error || t('errors.invalidCredentials'));
       }
     } catch (e) { 
-      setError('Login failed'); 
+      setError(t('errors.loginFailed')); 
     }
   };
 
@@ -1418,10 +1471,10 @@ const [settings, setSettings] = useState({
         }
       } else {
         const errorData = await res.json().catch(() => ({}));
-        setError(errorData.error || 'Setup failed');
+        setError(errorData.error || t('setup.setupFailed'));
       }
     } catch (e) {
-      setError('Setup failed. Please try again.');
+      setError(t('setup.setupFailedRetry'));
     } finally {
       setIsSettingUp(false);
     }
@@ -1440,18 +1493,18 @@ const [settings, setSettings] = useState({
   const handleCreateCardConfirm = () => {
     const slug = createCardModal.slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
     if (!slug) {
-      showAlert('Please enter a valid user URL (e.g., "sarah")', 'error', 'Invalid User URL');
+      showAlert(t('errors.invalidUserUrl'), 'error', t('errors.invalidUserUrlTitle'));
       return;
     }
     if (slug.length < 1) {
-      showAlert('User URL must be at least 1 character long', 'error', 'Invalid User URL');
+      showAlert(t('errors.userUrlTooShort'), 'error', t('errors.invalidUserUrlTitle'));
       return;
     }
     // Prevent duplicate user URLs for the same user
     // Flatten all cards from grouped structure to check for duplicates
     const allCards = cardList.filter(c => c.slug === slug);
     if (allCards.length > 0) {
-      showAlert(`A card with user URL "${slug}" already exists. Please choose another user URL.`, 'error', 'User URL already exists');
+      showAlert(t('errors.userUrlExists', { slug }), 'error', t('errors.userUrlExistsTitle'));
       return;
     }
     // Store userId for this new card if provided
@@ -1472,12 +1525,12 @@ const [settings, setSettings] = useState({
 
   const handleCreateUser = async () => {
     if (!newUser.email || !newUser.password) {
-      if (showAlert) showAlert('Email and password are required', 'error');
+      if (showAlert) showAlert(t('errors.emailPasswordRequired'), 'error');
       return;
     }
 
     if (newUser.password.length < 8) {
-      if (showAlert) showAlert('Password must be at least 8 characters long', 'error');
+      if (showAlert) showAlert(t('errors.passwordMin8'), 'error');
       return;
     }
 
@@ -1527,7 +1580,7 @@ const [settings, setSettings] = useState({
 
   const handleSendInvitation = async () => {
     if (!newInvitation.email) {
-      if (showAlert) showAlert('Email is required', 'error');
+      if (showAlert) showAlert(t('errors.emailRequired'), 'error');
       return;
     }
 
@@ -1544,10 +1597,10 @@ const [settings, setSettings] = useState({
         setNewInvitation({ email: '', role: 'member' });
       } else {
         const errorData = await res.json().catch(() => ({}));
-        if (showAlert) showAlert(errorData.error || 'Failed to send invitation', 'error');
+        if (showAlert) showAlert(errorData.error || t('errors.sendInvitationFailed'), 'error');
       }
     } catch (e) {
-      if (showAlert) showAlert('Error sending invitation', 'error');
+      if (showAlert) showAlert(t('errors.sendInvitationError'), 'error');
     } finally {
       setIsSavingUser(false);
     }
@@ -1560,41 +1613,41 @@ const [settings, setSettings] = useState({
         body: JSON.stringify({ role: newRole })
       });
       if (res.ok) {
-        if (showAlert) showAlert('User role updated successfully', 'success');
+        if (showAlert) showAlert(t('users.roleUpdated'), 'success');
         checkAuth(); // Refresh card list
         setEditingUserId(null);
       } else {
         const errorData = await res.json().catch(() => ({}));
-        if (showAlert) showAlert(errorData.error || 'Failed to update role', 'error');
+        if (showAlert) showAlert(errorData.error || t('errors.updateRoleFailed'), 'error');
       }
     } catch (e) {
-      if (showAlert) showAlert('Error updating role', 'error');
+      if (showAlert) showAlert(t('errors.updateRoleError'), 'error');
     }
   };
 
   const handleRemoveUser = async (userId, userEmail) => {
     if (showConfirm) {
       showConfirm(
-        `Are you sure you want to permanently delete ${userEmail}? This will delete the user and all their cards. This action cannot be undone.`,
+        t('modals.deleteUserConfirm', { email: userEmail }),
         async () => {
           try {
             const res = await apiCall(`${API_ENDPOINT}/admin/users/${userId}`, {
               method: 'DELETE'
             });
             if (res.ok) {
-              if (showAlert) showAlert('User deleted successfully', 'success');
+              if (showAlert) showAlert(t('users.userDeleted'), 'success');
               checkAuth(); // Refresh card list
             } else {
               const errorData = await res.json().catch(() => ({}));
-              if (showAlert) showAlert(errorData.error || 'Failed to delete user', 'error');
+              if (showAlert) showAlert(errorData.error || t('errors.deleteUserFailed'), 'error');
             }
           } catch (e) {
-            if (showAlert) showAlert('Error deleting user', 'error');
+            if (showAlert) showAlert(t('errors.deleteUserError'), 'error');
           }
         },
-        'Delete User',
-        'Delete',
-        'Cancel'
+        t('modals.deleteUser'),
+        t('common.delete'),
+        t('common.cancel')
       );
     }
   };
@@ -1629,22 +1682,22 @@ const [settings, setSettings] = useState({
 
   const handleDelete = async (slug) => {
     showConfirm(
-      `Are you sure you want to delete ${slug}?`,
+      t('modals.deleteCardConfirm', { slug }),
       async () => {
         const res = await apiCall(`${API_ENDPOINT}/cards/${slug}`, {
           method: 'DELETE'
         });
         if (res.ok) {
-          showAlert('Card deleted successfully', 'success', '', () => {
+          showAlert(t('card.cardDeleted'), 'success', '', () => {
             fetchCardList();
           });
         } else {
-          showAlert('Failed to delete card', 'error');
+          showAlert(t('errors.deleteCardFailed'), 'error');
         }
       },
-      'Delete Card',
-      'Delete',
-      'Cancel'
+      t('modals.deleteCard'),
+      t('common.delete'),
+      t('common.cancel')
     );
   };
 
@@ -1677,7 +1730,7 @@ const [settings, setSettings] = useState({
           fetchCardList();
           setTimeout(() => setIsSuccess(false), 2000);
         } else {
-          showAlert('Save failed', 'error');
+          showAlert(t('errors.saveFailed'), 'error');
         }
       } finally {
         setIsSaving(false);
@@ -1696,11 +1749,11 @@ const [settings, setSettings] = useState({
       );
       if (duplicates.length > 0) {
         showConfirm(
-          `Another card already uses this email address (${email}). Would you like to save anyway?`,
+          t('modals.emailInUseConfirm', { email }),
           performSave,
-          'Email already in use',
-          'Save anyway',
-          'Cancel'
+          t('modals.emailInUseTitle'),
+          t('modals.saveAnyway'),
+          t('common.cancel')
         );
         return;
       }
@@ -1716,7 +1769,7 @@ const [settings, setSettings] = useState({
     <>
       {view === 'loading' && (
         <>
-          <div className="h-screen flex items-center justify-center text-text-muted-subtle dark:text-text-muted-dark bg-main dark:bg-main-dark bg-main-texture">Loading...</div>
+          <div className="h-screen flex items-center justify-center text-text-muted-subtle dark:text-text-muted-dark bg-main dark:bg-main-dark bg-main-texture">{t('common.loading')}</div>
           <Modal isOpen={modal.isOpen} onClose={closeModal} type={modal.type} title={modal.title} message={modal.message} onConfirm={modal.onConfirm} confirmText={modal.confirmText} cancelText={modal.cancelText} />
         </>
       )}
@@ -1724,7 +1777,7 @@ const [settings, setSettings] = useState({
         <>
           <div className="h-screen flex flex-col items-center justify-center bg-main dark:bg-main-dark bg-main-texture">
             <h1 className="text-4xl font-bold text-text-primary dark:text-text-primary-dark mb-2">404</h1>
-            <p className="text-text-muted dark:text-text-muted-dark">Card not found.</p>
+            <p className="text-text-muted dark:text-text-muted-dark">{t('card.cardNotFoundError')}</p>
           </div>
           <Modal isOpen={modal.isOpen} onClose={closeModal} type={modal.type} title={modal.title} message={modal.message} onConfirm={modal.onConfirm} confirmText={modal.confirmText} cancelText={modal.cancelText} />
         </>
@@ -1735,12 +1788,12 @@ const [settings, setSettings] = useState({
             <div className="bg-card dark:bg-card-dark max-w-md w-full rounded-page shadow-xl p-8">
               <div className="text-center mb-8">
                 <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-indigo-600 dark:text-indigo-400"><Settings className="w-8 h-8" /></div>
-                <h1 className="text-2xl font-bold text-text-primary dark:text-text-primary-dark">Initial Setup</h1>
-                <p className="text-sm text-text-muted dark:text-text-muted-dark mt-2">Configure your organisation and create the first admin user</p>
+                <h1 className="text-2xl font-bold text-text-primary dark:text-text-primary-dark">{t('setup.initialSetup')}</h1>
+                <p className="text-sm text-text-muted dark:text-text-muted-dark mt-2">{t('setup.configureInstruction')}</p>
               </div>
               <form onSubmit={handleSetup} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2">Organisation Name</label>
+                  <label className="block text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2">{t('setup.organisationNameLabel')}</label>
                   <input 
                     type="text" 
                     value={setupData.organisationName} 
@@ -1752,7 +1805,7 @@ const [settings, setSettings] = useState({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2">Admin Email</label>
+                  <label className="block text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2">{t('setup.adminEmailLabel')}</label>
                   <input 
                     type="email" 
                     value={setupData.adminEmail} 
@@ -1763,17 +1816,17 @@ const [settings, setSettings] = useState({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2">Admin Password</label>
+                  <label className="block text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2">{t('setup.adminPasswordLabel')}</label>
                   <input 
                     type="password" 
                     value={setupData.adminPassword} 
                     onChange={e => setSetupData({ ...setupData, adminPassword: e.target.value })} 
-                    placeholder="Minimum 8 characters" 
+                    placeholder={t('auth.passwordMin8')} 
                     className="w-full px-5 py-3 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark" 
                     required 
                     minLength={8}
                   />
-                  <p className="text-xs text-text-muted dark:text-text-muted-dark mt-1">Password must be at least 8 characters long</p>
+                  <p className="text-xs text-text-muted dark:text-text-muted-dark mt-1">{t('setup.adminPasswordHelp')}</p>
                 </div>
                 {error && <div className="flex items-center gap-2 text-error-text dark:text-error-text-dark text-sm">{error}</div>}
                 <button 
@@ -1788,7 +1841,7 @@ const [settings, setSettings] = useState({
                   ) : (
                     <Save className="w-4 h-4" />
                   )}
-                  {isSettingUp ? 'Setting up...' : 'Complete Setup'}
+                  {isSettingUp ? t('setup.completingSetup') : t('setup.completeSetup')}
                 </button>
               </form>
               <div className="text-center mt-auto pt-8 pb-0 group relative z-10" style={{ boxSizing: 'content-box' }}>
@@ -1809,13 +1862,13 @@ const [settings, setSettings] = useState({
             <div className="bg-card dark:bg-card-dark max-w-sm w-full rounded-page shadow-xl p-8">
               <div className="text-center mb-8">
                 <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-indigo-600 dark:text-indigo-400"><Lock className="w-8 h-8" /></div>
-                <h1 className="text-2xl font-bold text-text-primary dark:text-text-primary-dark">Login</h1>
+                <h1 className="text-2xl font-bold text-text-primary dark:text-text-primary-dark">{t('auth.loginHeading')}</h1>
               </div>
               <form onSubmit={handleLogin} className="space-y-4">
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" className="w-full px-5 py-3 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark" autoFocus />
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" className="w-full px-5 py-3 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark" />
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder={t('auth.emailLabel')} className="w-full px-5 py-3 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark" autoFocus />
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={t('auth.passwordLabel')} className="w-full px-5 py-3 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark" />
                 {error && <div className="flex items-center gap-2 text-error-text dark:text-error-text-dark text-sm">{error}</div>}
-                <button type="submit" className="w-full py-3.5 rounded-full bg-confirm dark:bg-confirm-dark text-confirm-text dark:text-confirm-text-dark font-bold hover:bg-confirm-hover dark:hover:bg-confirm-hover-dark transition-colors">Login</button>
+                <button type="submit" className="w-full py-3.5 rounded-full bg-confirm dark:bg-confirm-dark text-confirm-text dark:text-confirm-text-dark font-bold hover:bg-confirm-hover dark:hover:bg-confirm-hover-dark transition-colors">{t('auth.loginButton')}</button>
               </form>
             <div className="text-center mt-8 group relative z-10">
               <div className="flex justify-center">
@@ -1836,31 +1889,32 @@ const [settings, setSettings] = useState({
             {/* UPDATED HEADER: flex-wrap + gap adjustments for mobile */}
             <div className="flex flex-wrap justify-between items-center mb-8 gap-4 relative z-10">
                <div>
-                 <h1 className="text-2xl md:text-3xl font-bold text-text-primary dark:text-text-primary-dark">People</h1>
-                 <p className="text-sm md:text-base text-text-muted dark:text-text-muted-dark">Manage your people</p>
+                 <h1 className="text-2xl md:text-3xl font-bold text-text-primary dark:text-text-primary-dark">{t('dashboard.peopleHeading')}</h1>
+                 <p className="text-sm md:text-base text-text-muted dark:text-text-muted-dark">{t('dashboard.managePeople')}</p>
                </div>
                <div className="flex flex-wrap gap-2 md:gap-3 w-full md:w-auto">
+                 <LanguageSelector csrfToken={csrfToken} />
                  <button onClick={toggleDarkMode} className="px-3 py-2 md:px-4 md:py-3 rounded-full font-medium text-text-muted dark:text-text-muted-dark bg-card dark:bg-card-dark border border-border dark:border-border-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors whitespace-nowrap flex items-center gap-2 text-sm md:text-base">
                    {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                  </button>
-                 <button onClick={handleLogout} className="px-3 py-2 md:px-4 md:py-3 rounded-full font-medium text-text-muted dark:text-text-muted-dark bg-card dark:bg-card-dark border border-border dark:border-border-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors whitespace-nowrap text-sm md:text-base">Logout</button>
+                 <button onClick={handleLogout} className="px-3 py-2 md:px-4 md:py-3 rounded-full font-medium text-text-muted dark:text-text-muted-dark bg-card dark:bg-card-dark border border-border dark:border-border-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors whitespace-nowrap text-sm md:text-base">{t('common.logout')}</button>
                  {userRole === 'owner' && (
                    <button onClick={() => navigate('/settings')} className="px-3 py-2 md:px-4 md:py-3 rounded-full font-medium text-text-secondary dark:text-text-secondary-dark bg-card dark:bg-card-dark border border-border dark:border-border-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors whitespace-nowrap flex items-center gap-2 text-sm md:text-base">
-                     <Settings className="w-4 h-4" /> <span className="hidden sm:inline">Organisation</span><span className="sm:hidden">Org</span>
+                     <Settings className="w-4 h-4" /> <span className="hidden sm:inline">{t('dashboard.organisationNav')}</span><span className="sm:hidden">{t('dashboard.orgShort')}</span>
                    </button>
                  )}
                  {userRole === 'owner' && (
                    <button onClick={() => navigate('/users')} className="px-3 py-2 md:px-4 md:py-3 rounded-full font-medium text-text-secondary dark:text-text-secondary-dark bg-card dark:bg-card-dark border border-border dark:border-border-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors whitespace-nowrap flex items-center gap-2 text-sm md:text-base">
-                     <Users className="w-4 h-4" /> Users
+                     <Users className="w-4 h-4" /> {t('dashboard.usersNav')}
                    </button>
                  )}
                  {isPlatformAdmin && (
                    <button onClick={() => { setView('platform-admin'); document.title = 'Platform Admin'; navigate('/admin'); }} className="px-3 py-2 md:px-4 md:py-3 rounded-full font-medium text-text-secondary dark:text-text-secondary-dark bg-card dark:bg-card-dark border border-border dark:border-border-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors whitespace-nowrap flex items-center gap-2 text-sm md:text-base">
-                     <Shield className="w-4 h-4" /> <span className="hidden sm:inline">Platform</span><span className="sm:hidden">Admin</span>
+                     <Shield className="w-4 h-4" /> <span className="hidden sm:inline">{t('dashboard.platformAdminNav')}</span><span className="sm:hidden">{t('dashboard.adminNav')}</span>
                    </button>
                  )}
                  <button onClick={handleCreateNew} className="bg-action dark:bg-action-dark text-white px-4 py-2 md:px-6 md:py-3 rounded-full font-bold flex items-center gap-2 hover:bg-action-hover dark:hover:bg-action-hover-dark transition-all whitespace-nowrap text-sm md:text-base">
-                   <Plus className="w-4 h-4 md:w-5 md:h-5" /> New Person
+                   <Plus className="w-4 h-4 md:w-5 md:h-5" /> {t('dashboard.newPerson')}
                  </button>
                </div>
             </div>
@@ -1883,7 +1937,7 @@ const [settings, setSettings] = useState({
                                 ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300' 
                                 : 'bg-surface dark:bg-surface-dark text-text-primary dark:text-text-secondary-dark'
                             }`}>
-                              {user.userRole === 'owner' ? 'Owner' : 'Member'}
+                              {user.userRole === 'owner' ? t('common.owner') : t('common.member')}
                             </span>
                             {user.userCreatedAt && (
                               <span className="text-text-muted dark:text-text-muted-dark text-[10px]">
@@ -1900,14 +1954,14 @@ const [settings, setSettings] = useState({
                                     onChange={(e) => handleUpdateRole(user.userId, e.target.value)}
                                     className="flex-1 px-2 py-1 text-[10px] rounded border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark"
                                   >
-                                    <option value="member">Member</option>
-                                    <option value="owner">Owner</option>
+                                    <option value="member">{t('common.member')}</option>
+                                    <option value="owner">{t('common.owner')}</option>
                                   </select>
                                   <button
                                     onClick={() => setEditingUserId(null)}
                                     className="px-2 py-1 text-[10px] bg-surface dark:bg-surface-dark text-text-primary dark:text-text-secondary-dark rounded hover:bg-surface dark:hover:bg-surface-dark"
                                   >
-                                    Cancel
+                                    {t('common.cancel')}
                                   </button>
                                 </div>
                               ) : (
@@ -1916,13 +1970,13 @@ const [settings, setSettings] = useState({
                                     onClick={() => setEditingUserId(user.userId)}
                                     className="flex-1 px-2 py-1 text-[10px] bg-surface dark:bg-surface-dark text-text-primary dark:text-text-secondary-dark rounded hover:bg-surface dark:hover:bg-surface-dark flex items-center justify-center gap-1"
                                   >
-                                    <Edit3 className="w-3 h-3" /> Role
+                                    <Edit3 className="w-3 h-3" /> {t('users.role')}
                                   </button>
                                   <button
                                     onClick={() => handleRemoveUser(user.userId, user.userEmail)}
                                     className="flex-1 px-2 py-1 text-[10px] bg-error-bg dark:bg-error-bg-dark text-error dark:text-error-text-dark rounded hover:bg-error-bg dark:hover:bg-error-bg-dark flex items-center justify-center gap-1"
                                   >
-                                    <Trash2 className="w-3 h-3" /> Remove
+                                    <Trash2 className="w-3 h-3" /> {t('common.remove')}
                                   </button>
                                 </>
                               )}
@@ -1930,7 +1984,7 @@ const [settings, setSettings] = useState({
                           )}
                           {user.userId === currentUserId && (
                             <div className="text-[10px] text-text-muted dark:text-text-muted-dark italic mt-2 pt-2 border-t border-border dark:border-border-dark">
-                              Cannot modify yourself
+                              {t('users.cannotModifySelf')}
                             </div>
                           )}
                         </div>
@@ -1979,23 +2033,23 @@ const [settings, setSettings] = useState({
                                     rel="noreferrer" 
                                     className="flex-1 py-2 text-xs font-medium text-confirm-text dark:text-confirm-text-dark bg-confirm dark:bg-confirm-dark rounded-button hover:bg-confirm-hover dark:hover:bg-confirm-hover-dark flex items-center justify-center gap-1"
                                   >
-                                    <ExternalLink className="w-3 h-3"/> View
+                                    <ExternalLink className="w-3 h-3"/> {t('common.view')}
                                   </a>
-                                  <button onClick={() => handleEdit(card.slug)} className="flex-1 py-2 text-xs font-medium text-confirm-text dark:text-confirm-text-dark bg-confirm dark:bg-confirm-dark rounded-button hover:bg-confirm-hover dark:hover:bg-confirm-hover-dark flex items-center justify-center gap-1"><Edit3 className="w-3 h-3"/> Edit</button>
+                                  <button onClick={() => handleEdit(card.slug)} className="flex-1 py-2 text-xs font-medium text-confirm-text dark:text-confirm-text-dark bg-confirm dark:bg-confirm-dark rounded-button hover:bg-confirm-hover dark:hover:bg-confirm-hover-dark flex items-center justify-center gap-1"><Edit3 className="w-3 h-3"/> {t('common.edit')}</button>
                                 </div>
                               </div>
                             </div>
                           ))}
                           {/* Create Card button at bottom of card list */}
                           <div className="bg-surface dark:bg-surface-dark/30 rounded-t-badge rounded-b-container border-thick border-dashed border-border dark:border-border-dark p-[15px] flex items-center justify-center">
-                            <button onClick={() => setCreateCardModal({ isOpen: true, slug: '', userId: user.userId || user.userEmail })} className="px-4 py-2 text-sm font-medium text-white bg-action dark:bg-action-dark rounded-button hover:bg-action-hover dark:hover:bg-action-hover-dark flex items-center justify-center gap-2"><Plus className="w-4 h-4"/> Create Card</button>
+                            <button onClick={() => setCreateCardModal({ isOpen: true, slug: '', userId: user.userId || user.userEmail })} className="px-4 py-2 text-sm font-medium text-white bg-action dark:bg-action-dark rounded-button hover:bg-action-hover dark:hover:bg-action-hover-dark flex items-center justify-center gap-2"><Plus className="w-4 h-4"/> {t('dashboard.createCard')}</button>
                           </div>
                         </>
                       ) : (
                         /* No cards - show Create Card button in place */
                         <div className="bg-surface dark:bg-surface-dark/50 rounded-t-badge rounded-b-container p-5 border border-border dark:border-border-dark" style={{ aspectRatio: '1.586 / 1' }}>
                           <div className="w-full h-full bg-surface dark:bg-surface-dark/30 rounded-t-badge rounded-b-badge border-thick border-dashed border-border dark:border-border-dark flex flex-col items-center justify-center">
-                            <button onClick={() => setCreateCardModal({ isOpen: true, slug: '', userId: user.userId || user.userEmail })} className="px-4 py-3 text-sm font-medium text-white bg-action dark:bg-action-dark rounded-button hover:bg-action-hover dark:hover:bg-action-hover-dark flex items-center justify-center gap-2"><Plus className="w-4 h-4"/> Create Card</button>
+                            <button onClick={() => setCreateCardModal({ isOpen: true, slug: '', userId: user.userId || user.userEmail })} className="px-4 py-3 text-sm font-medium text-white bg-action dark:bg-action-dark rounded-button hover:bg-action-hover dark:hover:bg-action-hover-dark flex items-center justify-center gap-2"><Plus className="w-4 h-4"/> {t('dashboard.createCard')}</button>
                           </div>
                         </div>
                       )}
@@ -2005,7 +2059,7 @@ const [settings, setSettings] = useState({
               })}
               {cardList.length === 0 && (
                  <div className="col-span-full py-20 text-center text-text-muted-subtle dark:text-text-muted-dark bg-card dark:bg-card-dark rounded-card border-thick border-dashed border-border dark:border-border-dark">
-                   No people yet. Click "New Person" to start.
+                   {t('dashboard.noPeopleYet')}
                  </div>
               )}
           </div>
@@ -2021,7 +2075,7 @@ const [settings, setSettings] = useState({
           {actionSelectionModal.isOpen && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
               <div className="bg-card dark:bg-card-dark rounded-card shadow-xl max-w-md w-full p-6">
-                <h3 className="text-lg font-bold text-text-primary dark:text-text-primary-dark mb-4">What would you like to do?</h3>
+                <h3 className="text-lg font-bold text-text-primary dark:text-text-primary-dark mb-4">{t('modals.whatWouldYouLikeToDo')}</h3>
                 <div className="space-y-3">
                   <button
                     onClick={() => {
@@ -2030,7 +2084,7 @@ const [settings, setSettings] = useState({
                     }}
                     className="w-full px-4 py-3 bg-action dark:bg-action-dark text-white rounded-button font-medium hover:bg-action-hover dark:hover:bg-action-hover-dark flex items-center justify-center gap-2"
                   >
-                    <Users className="w-4 h-4" /> Invite User
+                    <Users className="w-4 h-4" /> {t('users.inviteUser')}
                   </button>
                   <button
                     onClick={() => {
@@ -2039,14 +2093,14 @@ const [settings, setSettings] = useState({
                     }}
                     className="w-full px-4 py-3 bg-confirm dark:bg-confirm-dark text-confirm-text dark:text-confirm-text-dark rounded-button font-medium hover:bg-confirm-hover dark:hover:bg-confirm-hover-dark flex items-center justify-center gap-2"
                   >
-                    <User className="w-4 h-4" /> Create User
+                    <User className="w-4 h-4" /> {t('users.createUser')}
                   </button>
                 </div>
                 <button
                   onClick={() => setActionSelectionModal({ isOpen: false })}
                   className="w-full mt-4 px-4 py-2 bg-surface dark:bg-surface-dark text-text-primary dark:text-text-secondary-dark rounded-button font-medium hover:bg-surface dark:hover:bg-surface-dark"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
               </div>
             </div>
@@ -2055,10 +2109,10 @@ const [settings, setSettings] = useState({
           {showInviteModal && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
               <div className="bg-card dark:bg-card-dark rounded-card shadow-xl max-w-md w-full p-6">
-                <h3 className="text-lg font-bold text-text-primary dark:text-text-primary-dark mb-4">Invite User</h3>
+                <h3 className="text-lg font-bold text-text-primary dark:text-text-primary-dark mb-4">{t('users.inviteUser')}</h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">Email</label>
+                    <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">{t('auth.emailLabel')}</label>
                     <input
                       type="email"
                       value={newInvitation.email}
@@ -2066,17 +2120,17 @@ const [settings, setSettings] = useState({
                       className="w-full px-4 py-2.5 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark focus:border-action dark:focus:border-action-dark"
                       placeholder="user@example.com"
                     />
-                    <p className="text-xs text-text-muted dark:text-text-muted-dark mt-1">An invitation email will be sent to this address</p>
+                    <p className="text-xs text-text-muted dark:text-text-muted-dark mt-1">{t('users.invitationEmailNote')}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">Role</label>
+                    <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">{t('users.role')}</label>
                     <select
                       value={newInvitation.role}
                       onChange={(e) => setNewInvitation({ ...newInvitation, role: e.target.value })}
                       className="w-full px-4 py-2.5 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark focus:border-action dark:focus:border-action-dark"
                     >
-                      <option value="member">Member</option>
-                      <option value="owner">Owner</option>
+                      <option value="member">{t('common.member')}</option>
+                      <option value="owner">{t('common.owner')}</option>
                     </select>
                   </div>
                 </div>
@@ -2088,14 +2142,14 @@ const [settings, setSettings] = useState({
                     }}
                     className="flex-1 px-4 py-2.5 bg-surface dark:bg-surface-dark text-text-primary dark:text-text-secondary-dark rounded-button font-medium hover:bg-surface dark:hover:bg-surface-dark"
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </button>
                   <button
                     onClick={handleSendInvitation}
                     disabled={isSavingUser}
                     className="flex-1 px-4 py-2.5 bg-action dark:bg-action-dark text-white rounded-button font-bold hover:bg-action-hover dark:hover:bg-action-hover-dark disabled:opacity-50"
                   >
-                    {isSavingUser ? 'Sending...' : 'Send Invitation'}
+                    {isSavingUser ? t('users.sending') : t('users.sendInvitation')}
                   </button>
                 </div>
               </div>
@@ -2105,10 +2159,10 @@ const [settings, setSettings] = useState({
           {showCreateUserModal && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
               <div className="bg-card dark:bg-card-dark rounded-card shadow-xl max-w-md w-full p-6">
-                <h3 className="text-lg font-bold text-text-primary dark:text-text-primary-dark mb-4">Create New User</h3>
+                <h3 className="text-lg font-bold text-text-primary dark:text-text-primary-dark mb-4">{t('users.createNewUser')}</h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">Email</label>
+                    <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">{t('auth.emailLabel')}</label>
                     <input
                       type="email"
                       value={newUser.email}
@@ -2118,24 +2172,24 @@ const [settings, setSettings] = useState({
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">Password</label>
+                    <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">{t('auth.passwordLabel')}</label>
                     <input
                       type="password"
                       value={newUser.password}
                       onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
                       className="w-full px-4 py-2.5 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark focus:border-action dark:focus:border-action-dark"
-                      placeholder="Minimum 8 characters"
+                      placeholder={t('auth.passwordMin8')}
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">Role</label>
+                    <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">{t('users.role')}</label>
                     <select
                       value={newUser.role}
                       onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
                       className="w-full px-4 py-2.5 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark focus:border-action dark:focus:border-action-dark"
                     >
-                      <option value="member">Member</option>
-                      <option value="owner">Owner</option>
+                      <option value="member">{t('common.member')}</option>
+                      <option value="owner">{t('common.owner')}</option>
                     </select>
                   </div>
                 </div>
@@ -2147,14 +2201,14 @@ const [settings, setSettings] = useState({
                     }}
                     className="flex-1 px-4 py-2.5 bg-surface dark:bg-surface-dark text-text-primary dark:text-text-secondary-dark rounded-button font-medium hover:bg-surface dark:hover:bg-surface-dark"
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </button>
                   <button
                     onClick={handleCreateUser}
                     disabled={isSavingUser}
                     className="flex-1 px-4 py-2.5 bg-confirm dark:bg-confirm-dark text-confirm-text dark:text-confirm-text-dark rounded-button font-bold hover:bg-confirm-hover dark:hover:bg-confirm-hover-dark disabled:opacity-50"
                   >
-                    {isSavingUser ? 'Creating...' : 'Create User'}
+                    {isSavingUser ? t('common.creating') : t('users.createUser')}
                   </button>
                 </div>
               </div>
@@ -2166,15 +2220,15 @@ const [settings, setSettings] = useState({
             isOpen={createCardModal.isOpen}
             onClose={handleCreateCardCancel}
             type="info"
-            title="Create New Card"
-            message="Enter a user URL for the new card (e.g., 'sarah'):"
-            inputLabel="User URL"
+            title={t('dashboard.createNewCard')}
+            message={t('dashboard.enterUserUrl')}
+            inputLabel={t('dashboard.userUrlLabel')}
             inputPlaceholder="sarah"
             inputValue={createCardModal.slug}
             onInputChange={(value) => setCreateCardModal(prev => ({ ...prev, slug: value }))}
             onConfirm={handleCreateCardConfirm}
-            confirmText="Create"
-            cancelText="Cancel"
+            confirmText={t('common.create')}
+            cancelText={t('common.cancel')}
           />
         </>
       )}
@@ -2185,19 +2239,19 @@ const [settings, setSettings] = useState({
               <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
                 <User className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
               </div>
-              <h2 className="text-xl font-bold text-text-primary dark:text-text-primary-dark mb-2">You don't have a card yet</h2>
-              <p className="text-text-secondary dark:text-text-muted-dark mb-6">Create your first card to get started.</p>
+              <h2 className="text-xl font-bold text-text-primary dark:text-text-primary-dark mb-2">{t('dashboard.noCardYet')}</h2>
+              <p className="text-text-secondary dark:text-text-muted-dark mb-6">{t('dashboard.createFirstCard')}</p>
               <button
                 onClick={() => setCreateCardModal({ isOpen: true, slug: '' })}
                 className="w-full px-4 py-3 bg-action dark:bg-action-dark text-white rounded-button font-bold hover:bg-action-hover dark:hover:bg-action-hover-dark flex items-center justify-center gap-2"
               >
-                <Plus className="w-4 h-4" /> Create Card
+                <Plus className="w-4 h-4" /> {t('dashboard.createCard')}
               </button>
               <button
                 onClick={handleLogout}
                 className="w-full mt-3 px-4 py-2 bg-surface dark:bg-surface-dark text-text-primary dark:text-text-secondary-dark rounded-button font-medium hover:bg-surface dark:hover:bg-surface-dark"
               >
-                Logout
+                {t('common.logout')}
               </button>
             </div>
           </div>
@@ -2205,15 +2259,15 @@ const [settings, setSettings] = useState({
             isOpen={createCardModal.isOpen} 
             onClose={handleCreateCardCancel} 
             type="info" 
-            title="Create New Card" 
-            message="Enter a user URL for the new card (e.g., 'sarah'):"
-            inputLabel="User URL"
+            title={t('dashboard.createNewCard')} 
+            message={t('dashboard.enterUserUrl')}
+            inputLabel={t('dashboard.userUrlLabel')}
             inputPlaceholder="sarah"
             inputValue={createCardModal.slug}
             onInputChange={(value) => setCreateCardModal(prev => ({ ...prev, slug: value }))}
             onConfirm={handleCreateCardConfirm}
-            confirmText="Create"
-            cancelText="Cancel"
+            confirmText={t('common.create')}
+            cancelText={t('common.cancel')}
           />
           <Modal isOpen={modal.isOpen} onClose={closeModal} type={modal.type} title={modal.title} message={modal.message} onConfirm={modal.onConfirm} confirmText={modal.confirmText} cancelText={modal.cancelText} />
         </>
@@ -2344,6 +2398,7 @@ const [settings, setSettings] = useState({
 }
 
 function PublicCardRoute({ view, isPublicLoading, error, data, settings, darkMode, toggleDarkMode, showAlert, fetchCardByOrgAndSlug, fetchCardByShortCode, fetchPublicCard }) {
+  const { t } = useTranslation();
   const params = useParams();
   const location = useLocation();
   
@@ -2399,7 +2454,7 @@ function PublicCardRoute({ view, isPublicLoading, error, data, settings, darkMod
   if (isPublicLoading || ((view === 'loading' || view === 'public-loading') && hasPublicRouteParams)) {
     return (
       <div className="min-h-screen bg-main dark:bg-main-dark bg-main-texture flex justify-center items-center">
-        <div className="text-text-muted-subtle dark:text-text-muted-dark">Loading...</div>
+        <div className="text-text-muted-subtle dark:text-text-muted-dark">{t('common.loading')}</div>
       </div>
     );
   }
@@ -2409,7 +2464,7 @@ function PublicCardRoute({ view, isPublicLoading, error, data, settings, darkMod
     return (
       <div className="min-h-screen bg-main dark:bg-main-dark bg-main-texture flex justify-center items-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-text-primary dark:text-text-primary-dark mb-2">Card Not Found</h1>
+          <h1 className="text-2xl font-bold text-text-primary dark:text-text-primary-dark mb-2">{t('card.cardNotFound')}</h1>
           <p className="text-text-secondary dark:text-text-muted-dark">{error || 'The card you are looking for does not exist.'}</p>
         </div>
       </div>
@@ -2438,12 +2493,13 @@ function PublicCardRoute({ view, isPublicLoading, error, data, settings, darkMod
   // Default: show loading (shouldn't reach here, but safety net)
   return (
     <div className="min-h-screen bg-main dark:bg-main-dark bg-main-texture flex justify_center items-center">
-      <div className="text-text-muted-subtle dark:text-text-muted-dark">Loading...</div>
+      <div className="text-text-muted-subtle dark:text-text-muted-dark">{t('common.loading')}</div>
     </div>
   );
 }
 
 function CardDisplay({ data, settings, darkMode, toggleDarkMode, showAlert }) {
+  const { t } = useTranslation();
   const { personal = {}, contact = {}, social = {}, images = {}, theme = { color: 'indigo' }, links = [], privacy = {} } = data;
   const themeColor = settings?.theme_colors?.find(c => c.name === theme.color);
   const [showQR, setShowQR] = useState(false);
@@ -2713,18 +2769,31 @@ function CardDisplay({ data, settings, darkMode, toggleDarkMode, showAlert }) {
     const email = sanitizeText(contact.email || '');
     const website = sanitizeText(contact.website || '');
     const bio = sanitizeText(personal.bio || '');
-    
-    const vcard = `BEGIN:VCARD
-VERSION:3.0
-FN:${firstName} ${lastName}
-N:${lastName};${firstName};;;
-ORG:${company}
-TITLE:${title}
-TEL;TYPE=CELL:${phone}
-EMAIL;TYPE=WORK:${email}
-URL:${website}
-NOTE:${bio}
-END:VCARD`;
+    const location = sanitizeText(personal.location || '');
+
+    let vcard = 'BEGIN:VCARD\nVERSION:3.0\n';
+    const fullName = `${firstName} ${lastName}`.trim();
+    if (fullName) {
+      vcard += `FN:${fullName}\n`;
+      vcard += `N:${lastName};${firstName};;;\n`;
+    }
+    if (company) vcard += `ORG:${company}\n`;
+    if (title) vcard += `TITLE:${title}\n`;
+    if (phone) vcard += `TEL;TYPE=CELL:${phone}\n`;
+    if (email) vcard += `EMAIL;TYPE=WORK:${email}\n`;
+    if (website) vcard += `URL:${website}\n`;
+    if (location) vcard += `ADR;TYPE=WORK:;;${location};;;;\n`;
+
+    const socialLines = [];
+    if (social.linkedin) socialLines.push(`LinkedIn: ${sanitizeText(social.linkedin)}`);
+    if (social.twitter) socialLines.push(`Twitter: ${sanitizeText(social.twitter)}`);
+    if (social.instagram) socialLines.push(`Instagram: ${sanitizeText(social.instagram)}`);
+    if (social.github) socialLines.push(`GitHub: ${sanitizeText(social.github)}`);
+    const noteContent = [bio, ...socialLines].filter(Boolean).join('\\n');
+    if (noteContent) vcard += `NOTE:${noteContent}\n`;
+
+    vcard += 'END:VCARD';
+
     const blob = new Blob([vcard], { type: 'text/vcard' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -2813,7 +2882,7 @@ END:VCARD`;
                   : 'text-text-muted dark:text-text-secondary-dark'
               }`}
             >
-              Link only
+              {t('card.linkOnly')}
             </button>
             <button
               type="button"
@@ -2824,12 +2893,12 @@ END:VCARD`;
                   : 'text-text-muted dark:text-text-secondary-dark'
               }`}
             >
-              Full details
+              {t('card.fullDetails')}
             </button>
           </div>
 
           {/* Close button */}
-          <button onClick={() => setShowQR(false)} className="w-full max-w-md mx-auto py-3 bg-surface dark:bg-surface-dark text-text-primary dark:text-text-primary-dark font-bold rounded-input hover:bg-surface dark:hover:bg-surface-dark text-sm transition-colors">Close</button>
+          <button onClick={() => setShowQR(false)} className="w-full max-w-md mx-auto py-3 bg-surface dark:bg-surface-dark text-text-primary dark:text-text-primary-dark font-bold rounded-input hover:bg-surface dark:hover:bg-surface-dark text-sm transition-colors">{t('common.close')}</button>
 
           {/* Swiish logo */}
           <div className="bg-card dark:bg-card-dark text-center space-y-2 mt-[24px] mb-[12px]">
@@ -2859,7 +2928,7 @@ END:VCARD`;
           <button onClick={toggleDarkMode} className="bg-white/30 dark:bg-black/30 backdrop-blur-md p-2.5 rounded-full text-white hover:bg-white/40 dark:hover:bg-black/40 transition-all border border-white/20 dark:border-white/10 shadow-sm">
             {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </button>
-          <button onClick={() => setShowQR(true)} className="bg-white/30 dark:bg-black/30 backdrop-blur-md p-2.5 rounded-full text-white hover:bg-white/40 dark:hover:bg-black/40 transition-all border border-white/20 dark:border-white/10 shadow-sm" aria-label="Show QR code" title="Show QR code">
+          <button onClick={() => setShowQR(true)} className="bg-white/30 dark:bg-black/30 backdrop-blur-md p-2.5 rounded-full text-white hover:bg-white/40 dark:hover:bg-black/40 transition-all border border-white/20 dark:border-white/10 shadow-sm" aria-label={t('card.showQrCode')} title={t('card.showQrCode')}>
             <Share2 className="w-5 h-5" />
           </button>
           {shouldShowInstallButton && (
@@ -2929,8 +2998,8 @@ END:VCARD`;
                 }
               }}
               className="bg-white/30 dark:bg-black/30 backdrop-blur-md p-2.5 rounded-full text-white hover:bg-white/40 dark:hover:bg-black/40 transition-all border border-white/20 dark:border-white/10 shadow-sm"
-              aria-label="Install app for offline access"
-              title="Install app for offline access"
+              aria-label={t('card.installApp')}
+              title={t('card.installApp')}
             >
               <Download className="w-5 h-5" />
             </button>
@@ -2986,7 +3055,7 @@ END:VCARD`;
                       e.target.style.backgroundColor = color.buttonStyle;
                     }}
                   >
-                    <Save className="w-5 h-5" /> Save Contact
+                    <Save className="w-5 h-5" /> {t('card.saveContact')}
                   </button>
                 );
               }
@@ -2996,7 +3065,7 @@ END:VCARD`;
                   className="col-span-2 flex items-center justify-center gap-2 py-3.5 rounded-full font-bold text-white shadow-lg transition-transform active:scale-[0.98]"
                   style={{ backgroundColor: getButtonColor(theme.color, settings) }}
                 >
-                  <Save className="w-5 h-5" /> Save Contact
+                  <Save className="w-5 h-5" /> {t('card.saveContact')}
                 </button>
               );
             }
@@ -3015,7 +3084,7 @@ END:VCARD`;
                   onClick={() => setContactRevealed(true)}
                   className="col-span-2 flex items-center justify-center gap-2 py-3.5 rounded-full font-semibold bg-surface dark:bg-surface-dark text-text-primary dark:text-text-primary-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors border border-border dark:border-border-dark"
                 >
-                  <Eye className="w-5 h-5" /> See my details
+                  <Eye className="w-5 h-5" /> {t('editor.seeMyDetails')}
                 </button>
               );
             }
@@ -3075,7 +3144,7 @@ END:VCARD`;
             className="w-full flex items-center justify-center gap-2 py-3.5 rounded-full font-semibold bg-confirm text-confirm-text dark:bg-confirm-dark dark:text-confirm-text-dark hover:opacity-90 transition-colors shadow-lg active:scale-[0.98]"
           >
             <MessageCircle className="w-5 h-5" />
-            {showSendOptions ? 'Hide send options' : 'Send your details'}
+            {showSendOptions ? t('card.hideSendOptions') : t('card.sendYourDetails')}
           </button>
 
           {showSendOptions && (
@@ -3088,7 +3157,7 @@ END:VCARD`;
                   className="w-full flex items-center justify-center gap-2 py-3 rounded-full font-semibold bg-success dark:bg-success-dark text-white hover:bg-success-hover dark:hover:bg-success-hover-dark transition-colors"
                 >
                   <MessageCircle className="w-5 h-5" />
-                  WhatsApp me your number
+                  {t('card.whatsappMe')}
                 </a>
               )}
 
@@ -3098,7 +3167,7 @@ END:VCARD`;
                   className="w-full flex items-center justify-center gap-2 py-3 rounded-full font-semibold bg-surface dark:bg-surface-dark text-text-primary dark:text-text-primary-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors border border-border dark:border-border-dark"
                 >
                   <Mail className="w-5 h-5" />
-                  Email me your details
+                  {t('card.emailMeDetails')}
                 </a>
               )}
 
@@ -3108,12 +3177,12 @@ END:VCARD`;
                   className="w-full flex items-center justify-center gap-2 py-3 rounded-full font-semibold bg-surface dark:bg-surface-dark text-text-primary dark:text-text-primary-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors border border-border dark:border-border-dark"
                 >
                   <Phone className="w-5 h-5" />
-                  Drop call me your number
+                  {t('card.dropCallMe')}
                 </a>
               )}
 
               <p className="mt-1 text-[11px] text-text-muted dark:text-text-muted-dark text-center">
-                Only shared with me, never sold.
+                {t('card.onlySharedNeverSold')}
               </p>
             </div>
           )}
@@ -3221,6 +3290,7 @@ function SortableLinkItem({ link, children }) {
 }
 
 function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, showAlert, darkMode, toggleDarkMode, isSaving, isSuccess }) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('details');
   const [isUploading, setIsUploading] = useState(false);
   const sensors = useSensors(
@@ -3256,10 +3326,10 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
         setData(prev => ({ ...prev, images: { ...prev.images, [type]: url } }));
       } else {
         const errorData = await res.json().catch(() => ({}));
-        if (showAlert) showAlert(errorData.error || 'Upload failed', 'error');
+        if (showAlert) showAlert(errorData.error || t('errors.uploadFailed'), 'error');
       }
     } catch (error) {
-      if (showAlert) showAlert('Upload error', 'error');
+      if (showAlert) showAlert(t('errors.uploadError'), 'error');
     } finally {
       setIsUploading(false);
     }
@@ -3307,7 +3377,7 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
           <div className="flex items-center gap-4">
              <button onClick={onBack} className="p-2 hover:bg-surface dark:hover:bg-surface-dark rounded-full text-text-muted dark:text-text-muted-dark"><ArrowLeft className="w-5 h-5"/></button>
              <div>
-               <h1 className="text-xl font-bold text-text-primary dark:text-text-primary-dark">Editing: {slug}</h1>
+               <h1 className="text-xl font-bold text-text-primary dark:text-text-primary-dark">{t('editor.editingLabel', { slug })}</h1>
              </div>
           </div>
           <button
@@ -3322,7 +3392,7 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
             ) : (
               <Save className="w-4 h-4" />
             )}
-            Save
+            {t('common.save')}
           </button>
         </div>
 
@@ -3336,11 +3406,11 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
            {activeTab === 'details' && (
              <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input label="First Name" value={data.personal.firstName} onChange={v => handleInputChange('personal', 'firstName', v)} />
-                  <Input label="Last Name" value={data.personal.lastName} onChange={v => handleInputChange('personal', 'lastName', v)} />
-                  <Input label="Job Title" value={data.personal.title} onChange={v => handleInputChange('personal', 'title', v)} />
+                  <Input label={t('editor.firstName')} value={data.personal.firstName} onChange={v => handleInputChange('personal', 'firstName', v)} />
+                  <Input label={t('editor.lastName')} value={data.personal.lastName} onChange={v => handleInputChange('personal', 'lastName', v)} />
+                  <Input label={t('editor.jobTitle')} value={data.personal.title} onChange={v => handleInputChange('personal', 'title', v)} />
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark">Organisation</label>
+                    <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark">{t('editor.companyLabel')}</label>
                     <div className="relative">
                       <input 
                         type="text" 
@@ -3353,11 +3423,11 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
                         <Lock className="w-4 h-4 text-text-muted-subtle dark:text-text-muted-dark" />
                       </div>
                     </div>
-                    <p className="text-xs text-text-muted dark:text-text-muted-dark mt-1">Organisation name is set by your organisation</p>
+                    <p className="text-xs text-text-muted dark:text-text-muted-dark mt-1">{t('editor.companyHelp')}</p>
                   </div>
                 </div>
-                <Input label="Location" value={data.personal.location} onChange={v => handleInputChange('personal', 'location', v)} />
-                <TextArea label="Bio" value={data.personal.bio} onChange={v => handleInputChange('personal', 'bio', v)} />
+                <Input label={t('editor.location')} value={data.personal.location} onChange={v => handleInputChange('personal', 'location', v)} />
+                <TextArea label={t('editor.bio')} value={data.personal.bio} onChange={v => handleInputChange('personal', 'bio', v)} />
                 <div className="h-px bg-surface dark:bg-surface-dark" />
                 <div className="space-y-4">
                   <Input icon={Mail} placeholder="Email" value={data.contact.email} onChange={v => handleInputChange('contact', 'email', v)} type="email" />
@@ -3383,18 +3453,18 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
            {activeTab === 'links' && (
              <div className="space-y-6">
                 <div className="flex justify-between items-center">
-                    <h3 className="text-sm font-medium text-text-primary dark:text-text-secondary-dark">Custom Links</h3>
+                    <h3 className="text-sm font-medium text-text-primary dark:text-text-secondary-dark">{t('links.customLinks')}</h3>
                     {settings?.allow_links_customisation !== false ? (
-                      <button onClick={addLink} className="text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center gap-1"><Plus className="w-4 h-4" /> Add Link</button>
+                      <button onClick={addLink} className="text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center gap-1"><Plus className="w-4 h-4" /> {t('links.addLink')}</button>
                     ) : (
                       <div className="flex items-center gap-2 text-text-muted dark:text-text-muted-dark">
                         <Lock className="w-4 h-4" />
-                        <span className="text-sm">Locked</span>
+                        <span className="text-sm">{t('editor.locked')}</span>
                       </div>
                     )}
                 </div>
                 {settings?.allow_links_customisation === false ? (
-                  <LockedOption message="Your organisation has disabled custom links. Contact your administrator to enable this feature.">
+                  <LockedOption message={t('emptyStates.disabledLinks')}>
                     <div className="space-y-4">
                       {data.links.map((link, index) => (
                         <div key={link.id} className="bg-surface dark:bg-surface-dark p-4 rounded-input border border-border dark:border-border-dark">
@@ -3411,7 +3481,7 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
                       ))}
                       {data.links.length === 0 && (
                         <div className="text-center py-8 text-text-muted-subtle dark:text-text-muted-dark text-sm border-thick border-dashed border-border dark:border-border-dark rounded-input">
-                          No custom links yet.
+                          {t('links.noLinksYet')}
                         </div>
                       )}
                     </div>
@@ -3459,7 +3529,7 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
                                     <ChevronDown className="w-4 h-4" />
                                   </button>
                                 </div>
-                                <button onClick={() => removeLink(link.id)} className="absolute top-2 right-2 text-text-muted-subtle dark:text-text-muted-dark hover:text-error-text dark:hover:text-error-text-dark hover:bg-error-bg dark:hover:bg-error-bg-dark rounded-full p-1 transition-colors" aria-label="Remove link">
+                                <button onClick={() => removeLink(link.id)} className="absolute top-2 right-2 text-text-muted-subtle dark:text-text-muted-dark hover:text-error-text dark:hover:text-error-text-dark hover:bg-error-bg dark:hover:bg-error-bg-dark rounded-full p-1 transition-colors" aria-label={t('links.removeLink')}>
                                   <X className="w-4 h-4"/>
                                 </button>
                                 <div className="grid gap-3 pt-6">
@@ -3504,7 +3574,7 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
                     </DndContext>
                     {data.links.length === 0 && (
                         <div className="text-center py-8 text-text-muted-subtle dark:text-text-muted-dark text-sm border-thick border-dashed border-border dark:border-border-dark rounded-input">
-                            No custom links yet.
+                            {t('links.noLinksYet')}
                         </div>
                     )}
                 </div>
@@ -3515,17 +3585,17 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
            {activeTab === 'images' && (
               <div className="space-y-8">
                 {settings?.allow_image_customisation === false ? (
-                  <LockedOption message="Your organisation has disabled custom image uploads. Contact your administrator to enable this feature.">
+                  <LockedOption message={t('emptyStates.disabledImages')}>
                     <div className="space-y-8">
-                      <ImageUpload label="Profile Picture" image={data.images.avatar} onUpload={() => {}} onRemove={() => {}} disabled={true} />
-                      <ImageUpload label="Header Banner" image={data.images.banner} onUpload={() => {}} onRemove={() => {}} isBanner disabled={true} />
+                      <ImageUpload label={t('editor.profilePicture')} image={data.images.avatar} onUpload={() => {}} onRemove={() => {}} disabled={true} />
+                      <ImageUpload label={t('editor.headerBanner')} image={data.images.banner} onUpload={() => {}} onRemove={() => {}} isBanner disabled={true} />
                     </div>
                   </LockedOption>
                 ) : (
                   <>
-                    {isUploading && <div className="text-center text-sm text-indigo-600 dark:text-indigo-400 animate-pulse">Uploading image...</div>}
-                    <ImageUpload label="Profile Picture" image={data.images.avatar} onUpload={e => handleImageUpload('avatar', e)} onRemove={() => handleInputChange('images', 'avatar', null)} />
-                    <ImageUpload label="Header Banner" image={data.images.banner} onUpload={e => handleImageUpload('banner', e)} onRemove={() => handleInputChange('images', 'banner', null)} isBanner />
+                    {isUploading && <div className="text-center text-sm text-indigo-600 dark:text-indigo-400 animate-pulse">{t('editor.uploadingImage')}</div>}
+                    <ImageUpload label={t('editor.profilePicture')} image={data.images.avatar} onUpload={e => handleImageUpload('avatar', e)} onRemove={() => handleInputChange('images', 'avatar', null)} />
+                    <ImageUpload label={t('editor.headerBanner')} image={data.images.banner} onUpload={e => handleImageUpload('banner', e)} onRemove={() => handleInputChange('images', 'banner', null)} isBanner />
                   </>
                 )}
               </div>
@@ -3534,7 +3604,7 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
             {activeTab === 'style' && (
                <div className="space-y-6">
                  {settings?.allow_theme_customisation === false ? (
-                   <LockedOption message="Your organisation has disabled theme colour customisation. Your card will use the default theme colour.">
+                   <LockedOption message={t('emptyStates.disabledTheme')}>
                      <div className="flex flex-wrap gap-4">
                        {(settings?.theme_colors || []).map(color => (
                          <div 
@@ -3567,7 +3637,7 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
             {activeTab === 'privacy' && (
               <div className="space-y-6">
                 {settings?.allow_privacy_customisation === false ? (
-                  <LockedOption message="Your organisation has disabled privacy settings customisation. Privacy settings are controlled by your organisation.">
+                  <LockedOption message={t('emptyStates.disabledPrivacy')}>
                     <div className="space-y-6">
                       <Toggle
                         label="Require Interaction"
@@ -3636,6 +3706,7 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
 }
 
 function Input({ label, icon: Icon, value, onChange, type = "text", placeholder }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-1">
       {label && <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark">{label}</label>}
@@ -3648,6 +3719,7 @@ function Input({ label, icon: Icon, value, onChange, type = "text", placeholder 
 }
 
 function LockedOption({ message, children }) {
+  const { t } = useTranslation();
   return (
     <div className="relative">
       <div className="opacity-50 pointer-events-none">
@@ -3657,7 +3729,7 @@ function LockedOption({ message, children }) {
         <div className="bg-input-bg dark:bg-input-bg-dark rounded-container p-4 border border-border dark:border-border-dark shadow-lg max-w-sm mx-4">
           <div className="flex items-center gap-3 mb-2">
             <Lock className="w-5 h-5 text-text-muted dark:text-text-muted-dark" />
-            <span className="text-sm font-semibold text-text-primary dark:text-text-secondary-dark">Locked by Organisation</span>
+            <span className="text-sm font-semibold text-text-primary dark:text-text-secondary-dark">{t('editor.lockedByOrganisation')}</span>
           </div>
           <p className="text-xs text-text-secondary dark:text-text-muted-dark">{message}</p>
         </div>
@@ -3667,6 +3739,7 @@ function LockedOption({ message, children }) {
 }
 
 function TextArea({ label, value, onChange }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-1">
       <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark">{label}</label>
@@ -3676,6 +3749,7 @@ function TextArea({ label, value, onChange }) {
 }
 
 function Toggle({ label, description, checked, onChange }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
@@ -3702,6 +3776,7 @@ function Toggle({ label, description, checked, onChange }) {
 }
 
 function ImageUpload({ label, image, onUpload, onRemove, isBanner, disabled = false }) {
+  const { t } = useTranslation();
   return (
     <section>
       <h3 className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-3">{label}</h3>
@@ -3709,12 +3784,13 @@ function ImageUpload({ label, image, onUpload, onRemove, isBanner, disabled = fa
         {image ? <img src={image} className="w-full h-full object-cover" alt="upload" /> : <div className="text-center text-text-muted-subtle dark:text-text-muted-dark pointer-events-none"><Upload className="w-6 h-6 mx-auto mb-1" /><span className="text-xs">Upload</span></div>}
         <input type="file" accept="image/*" onChange={onUpload} disabled={disabled} className="absolute inset-0 opacity-0 cursor-pointer appearance-none bg-transparent focus:outline-none disabled:cursor-not-allowed" />
       </div>
-      {image && !disabled && <button onClick={onRemove} className="mt-2 text-sm text-red-500 dark:text-red-400 font-medium hover:text-red-600 dark:hover:text-red-300">Remove</button>}
+      {image && !disabled && <button onClick={onRemove} className="mt-2 text-sm text-red-500 dark:text-red-400 font-medium hover:text-red-600 dark:hover:text-red-300">{t('editor.removeImage')}</button>}
     </section>
   );
 }
 
 function SocialIcon({ url, icon: Icon, label, themeColor }) {
+  const { t } = useTranslation();
   if (!url) return null;
   // Use theme color if available, otherwise default to indigo
   const hoverColor = themeColor?.buttonStyle || themeColor?.textStyle || '#4f46e5';
@@ -3731,6 +3807,7 @@ function SocialIcon({ url, icon: Icon, label, themeColor }) {
 
 // Color Selector Component
 function ColorSelector({ selectedColor, onSelect, label, showAuto = false, autoLabel = "Auto (complementary)" }) {
+  const { t } = useTranslation();
   const colorGradients = {
     indigo: 'from-indigo-500 to-indigo-700',
     blue: 'from-blue-500 to-blue-700',
@@ -3787,6 +3864,7 @@ function ColorSelector({ selectedColor, onSelect, label, showAuto = false, autoL
 }
 
 function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm }) {
+  const { t } = useTranslation();
   const [users, setUsers] = useState([]);
   const [invitations, setInvitations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -3825,11 +3903,11 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
         const data = await res.json();
         setUsers(data);
       } else {
-        if (showAlert) showAlert('Failed to load users', 'error');
+        if (showAlert) showAlert(t('errors.loadUsersFailed'), 'error');
       }
     } catch (e) {
       console.error('Failed to fetch users:', e);
-      if (showAlert) showAlert('Error loading users', 'error');
+      if (showAlert) showAlert(t('errors.loadUsersError'), 'error');
     } finally {
       setIsLoading(false);
     }
@@ -3849,12 +3927,12 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
 
   const handleCreateUser = async () => {
     if (!newUser.email || !newUser.password) {
-      if (showAlert) showAlert('Email and password are required', 'error');
+      if (showAlert) showAlert(t('errors.emailPasswordRequired'), 'error');
       return;
     }
 
     if (newUser.password.length < 8) {
-      if (showAlert) showAlert('Password must be at least 8 characters long', 'error');
+      if (showAlert) showAlert(t('errors.passwordMin8'), 'error');
       return;
     }
 
@@ -3903,7 +3981,7 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
 
   const handleSendInvitation = async () => {
     if (!newInvitation.email) {
-      if (showAlert) showAlert('Email is required', 'error');
+      if (showAlert) showAlert(t('errors.emailRequired'), 'error');
       return;
     }
 
@@ -3922,17 +4000,17 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
 
         // Show warning if email failed
         if (data.status === 'failed' && showAlert) {
-          showAlert('Invitation created but email failed to send. You can retry from the invitations list below.', 'warning');
+          showAlert(t('users.invitationCreatedEmailFailed'), 'warning');
         }
 
         // Reload invitations list
         fetchInvitations();
       } else {
         const errorData = await res.json().catch(() => ({}));
-        if (showAlert) showAlert(errorData.error || 'Failed to send invitation', 'error');
+        if (showAlert) showAlert(errorData.error || t('errors.sendInvitationFailed'), 'error');
       }
     } catch (e) {
-      if (showAlert) showAlert('Error sending invitation', 'error');
+      if (showAlert) showAlert(t('errors.sendInvitationError'), 'error');
     } finally {
       setIsSaving(false);
     }
@@ -3945,41 +4023,41 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
         body: JSON.stringify({ role: newRole })
       });
       if (res.ok) {
-        if (showAlert) showAlert('User role updated successfully', 'success');
+        if (showAlert) showAlert(t('users.roleUpdated'), 'success');
         fetchUsers();
         setEditingUserId(null);
       } else {
         const errorData = await res.json().catch(() => ({}));
-        if (showAlert) showAlert(errorData.error || 'Failed to update role', 'error');
+        if (showAlert) showAlert(errorData.error || t('errors.updateRoleFailed'), 'error');
       }
     } catch (e) {
-      if (showAlert) showAlert('Error updating role', 'error');
+      if (showAlert) showAlert(t('errors.updateRoleError'), 'error');
     }
   };
 
   const handleRemoveUser = async (userId, userEmail) => {
     if (showConfirm) {
       showConfirm(
-        `Are you sure you want to permanently delete ${userEmail}? This will delete the user and all their cards. This action cannot be undone.`,
+        t('modals.deleteUserConfirm', { email: userEmail }),
         async () => {
           try {
             const res = await apiCall(`${API_ENDPOINT}/admin/users/${userId}`, {
               method: 'DELETE'
             });
             if (res.ok) {
-              if (showAlert) showAlert('User deleted successfully', 'success');
+              if (showAlert) showAlert(t('users.userDeleted'), 'success');
               fetchUsers();
             } else {
               const errorData = await res.json().catch(() => ({}));
-              if (showAlert) showAlert(errorData.error || 'Failed to delete user', 'error');
+              if (showAlert) showAlert(errorData.error || t('errors.deleteUserFailed'), 'error');
             }
           } catch (e) {
-            if (showAlert) showAlert('Error deleting user', 'error');
+            if (showAlert) showAlert(t('errors.deleteUserError'), 'error');
           }
         },
-        'Delete User',
-        'Delete',
-        'Cancel'
+        t('modals.deleteUser'),
+        t('common.delete'),
+        t('common.cancel')
       );
     }
   };
@@ -3992,36 +4070,36 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
       if (res.ok) {
         const data = await res.json();
         if (showAlert) {
-          showAlert(data.success ? 'Invitation email sent successfully' : 'Failed to send invitation email',
+          showAlert(data.success ? t('users.invitationSent') : t('errors.invitationSendFailed'),
                     data.success ? 'success' : 'error');
         }
         fetchInvitations();
       }
     } catch (e) {
-      if (showAlert) showAlert('Error retrying invitation', 'error');
+      if (showAlert) showAlert(t('errors.retryInvitationError'), 'error');
     }
   };
 
   const handleDeleteInvitation = async (invitationId) => {
     if (showConfirm) {
       showConfirm(
-        'Are you sure you want to delete this invitation?',
+        t('modals.deleteInvitationConfirm'),
         async () => {
           try {
             const res = await apiCall(`${API_ENDPOINT}/admin/invitations/${invitationId}`, {
               method: 'DELETE'
             });
             if (res.ok) {
-              if (showAlert) showAlert('Invitation deleted', 'success');
+              if (showAlert) showAlert(t('users.invitationDeleted'), 'success');
               fetchInvitations();
             }
           } catch (e) {
-            if (showAlert) showAlert('Error deleting invitation', 'error');
+            if (showAlert) showAlert(t('errors.deleteInvitationError'), 'error');
           }
         },
-        'Delete Invitation',
-        'Delete',
-        'Cancel'
+        t('modals.deleteInvitation'),
+        t('common.delete'),
+        t('common.cancel')
       );
     }
   };
@@ -4030,10 +4108,10 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
     return (
       <div className="min-h-screen bg-main dark:bg-main-dark flex items-center justify-center p-6">
         <div className="bg-card dark:bg-card-dark rounded-card p-8 shadow-lg max-w-md w-full">
-          <h2 className="text-xl font-bold text-text-primary dark:text-text-primary-dark mb-4">Access Denied</h2>
-          <p className="text-text-secondary dark:text-text-muted-dark mb-6">You don't have permission to manage users.</p>
+          <h2 className="text-xl font-bold text-text-primary dark:text-text-primary-dark mb-4">{t('users.accessDenied')}</h2>
+          <p className="text-text-secondary dark:text-text-muted-dark mb-6">{t('users.noPermission')}</p>
           <button onClick={onBack} className="px-4 py-2 bg-confirm dark:bg-confirm-dark text-confirm-text dark:text-confirm-text-dark rounded-full text-sm font-bold">
-            Back to Dashboard
+            {t('common.back')}
           </button>
         </div>
       </div>
@@ -4049,8 +4127,8 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
               <ArrowLeft className="w-5 h-5"/>
             </button>
             <div>
-              <h1 className="text-xl font-bold text-text-primary dark:text-text-primary-dark">User Management</h1>
-              <p className="text-sm text-text-secondary dark:text-text-muted-dark">Manage users and invitations for your organisation</p>
+              <h1 className="text-xl font-bold text-text-primary dark:text-text-primary-dark">{t('users.userManagement')}</h1>
+              <p className="text-sm text-text-secondary dark:text-text-muted-dark">{t('users.manageUsersDescription')}</p>
             </div>
           </div>
           <div className="flex gap-3">
@@ -4058,13 +4136,13 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
               onClick={() => setShowInviteModal(true)}
               className="px-4 py-2 bg-action dark:bg-action-dark text-white rounded-full text-sm font-bold flex items-center gap-2 hover:bg-action-hover dark:hover:bg-action-hover-dark"
             >
-              <Plus className="w-4 h-4" /> Invite User
+              <Plus className="w-4 h-4" /> {t('users.inviteUser')}
             </button>
             <button
               onClick={() => setShowCreateUserModal(true)}
               className="px-4 py-2 bg-confirm dark:bg-confirm-dark text-confirm-text dark:text-confirm-text-dark rounded-full text-sm font-bold flex items-center gap-2 hover:bg-confirm-hover dark:hover:bg-confirm-hover-dark"
             >
-              <Plus className="w-4 h-4" /> Create User
+              <Plus className="w-4 h-4" /> {t('users.createUser')}
             </button>
           </div>
         </div>
@@ -4073,19 +4151,19 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
       <div className="flex-1 p-6 max-w-6xl mx-auto w-full">
         {isLoading ? (
           <div className="text-center py-12">
-            <div className="text-text-secondary dark:text-text-muted-dark">Loading users...</div>
+            <div className="text-text-secondary dark:text-text-muted-dark">{t('users.loadingUsers')}</div>
           </div>
         ) : (
           <div className="space-y-6">
             <div className="bg-card dark:bg-card-dark rounded-input shadow-sm border border-border dark:border-border-dark overflow-hidden">
               <div className="p-6 border-b border-border dark:border-border-dark">
-                <h2 className="text-lg font-semibold text-text-primary dark:text-text-primary-dark">Organisation Users</h2>
-                <p className="text-sm text-text-secondary dark:text-text-muted-dark mt-1">Users currently in your organisation</p>
+                <h2 className="text-lg font-semibold text-text-primary dark:text-text-primary-dark">{t('users.organisationUsers')}</h2>
+                <p className="text-sm text-text-secondary dark:text-text-muted-dark mt-1">{t('users.usersInOrganisation')}</p>
               </div>
               <div className="divide-y divide-slate-200 dark:divide-slate-700">
                 {users.length === 0 ? (
                   <div className="p-6 text-center text-text-muted dark:text-text-muted-dark">
-                    No users found
+                    {t('users.noUsersFound')}
                   </div>
                 ) : (
                   users.map((user) => {
@@ -4101,17 +4179,17 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
                               <div className="font-medium text-text-primary dark:text-text-primary-dark flex items-center gap-2">
                                 {user.email}
                                 {isCurrentUser && (
-                                  <span className="text-xs text-text-muted dark:text-text-muted-dark">(You)</span>
+                                  <span className="text-xs text-text-muted dark:text-text-muted-dark">{t('users.you')}</span>
                                 )}
                               </div>
                               <div className="text-sm text-text-muted dark:text-text-muted-dark">
                                 {user.role === 'owner' ? (
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-badge text-xs font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300">
-                                    Owner
+                                    {t('common.owner')}
                                   </span>
                                 ) : (
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-badge text-xs font-medium bg-surface dark:bg-surface-dark text-text-primary dark:text-text-secondary-dark">
-                                    Member
+                                    {t('common.member')}
                                   </span>
                                 )}
                                 <span className="ml-2">Joined {new Date(user.created_at).toLocaleDateString()}</span>
@@ -4121,7 +4199,7 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
                         </div>
                         <div className="flex items-center gap-3">
                           {isCurrentUser ? (
-                            <span className="text-xs text-text-muted dark:text-text-muted-dark italic">Cannot modify yourself</span>
+                            <span className="text-xs text-text-muted dark:text-text-muted-dark italic">{t('users.cannotModifySelf')}</span>
                           ) : editingUserId === user.id ? (
                             <div className="flex items-center gap-2">
                               <select
@@ -4136,7 +4214,7 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
                                 onClick={() => setEditingUserId(null)}
                                 className="px-3 py-1.5 text-sm bg-surface dark:bg-surface-dark text-text-primary dark:text-text-secondary-dark rounded-button hover:bg-surface dark:hover:bg-surface-dark"
                               >
-                                Cancel
+                                {t('common.cancel')}
                               </button>
                             </div>
                           ) : (
@@ -4145,13 +4223,13 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
                                 onClick={() => setEditingUserId(user.id)}
                                 className="px-3 py-1.5 text-sm bg-surface dark:bg-surface-dark text-text-primary dark:text-text-secondary-dark rounded-button hover:bg-surface dark:hover:bg-surface-dark flex items-center gap-1"
                               >
-                                <Edit3 className="w-3 h-3" /> Change Role
+                                <Edit3 className="w-3 h-3" /> {t('users.changeRole')}
                               </button>
                               <button
                                 onClick={() => handleRemoveUser(user.id, user.email)}
                                 className="px-3 py-1.5 text-sm bg-error-bg dark:bg-error-bg-dark text-error dark:text-error-text-dark rounded-badge hover:bg-error-bg dark:hover:bg-error-bg-dark flex items-center gap-1"
                               >
-                                <Trash2 className="w-3 h-3" /> Remove
+                                <Trash2 className="w-3 h-3" /> {t('common.remove')}
                               </button>
                             </>
                           )}
@@ -4166,13 +4244,13 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
             {/* Pending Invitations Section */}
             <div className="bg-card dark:bg-card-dark rounded-input shadow-sm border border-border dark:border-border-dark overflow-hidden">
               <div className="p-6 border-b border-border dark:border-border-dark">
-                <h2 className="text-lg font-semibold text-text-primary dark:text-text-primary-dark">Pending Invitations</h2>
-                <p className="text-sm text-text-secondary dark:text-text-muted-dark mt-1">Invitations sent but not yet accepted</p>
+                <h2 className="text-lg font-semibold text-text-primary dark:text-text-primary-dark">{t('users.pendingInvitations')}</h2>
+                <p className="text-sm text-text-secondary dark:text-text-muted-dark mt-1">{t('users.invitationsNotAccepted')}</p>
               </div>
               <div className="divide-y divide-slate-200 dark:divide-slate-700">
                 {invitations.filter(inv => inv.status !== 'accepted' && !inv.accepted_at).length === 0 ? (
                   <div className="p-6 text-center text-text-muted dark:text-text-muted-dark">
-                    No pending invitations
+                    {t('users.noInvitations')}
                   </div>
                 ) : (
                   invitations.filter(inv => inv.status !== 'accepted' && !inv.accepted_at).map(inv => (
@@ -4201,11 +4279,11 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
                               </span>
                               {inv.role === 'owner' ? (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-badge text-xs font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300">
-                                  Owner
+                                  {t('common.owner')}
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-badge text-xs font-medium bg-surface dark:bg-surface-dark text-text-primary dark:text-text-secondary-dark">
-                                  Member
+                                  {t('common.member')}
                                 </span>
                               )}
                               {inv.invited_by_email && (
@@ -4223,7 +4301,7 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
                             className="px-3 py-1.5 text-sm bg-action dark:bg-action-dark text-white rounded-button hover:bg-action-hover dark:hover:bg-action-hover-dark flex items-center gap-1"
                             title="Retry sending email"
                           >
-                            <RefreshCw className="w-3 h-3" /> Retry
+                            <RefreshCw className="w-3 h-3" /> {t('common.retry')}
                           </button>
                         )}
                         <button
@@ -4231,7 +4309,7 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
                           className="px-3 py-1.5 text-sm bg-error-bg dark:bg-error-bg-dark text-error dark:text-error-text-dark rounded-badge hover:bg-error-bg dark:hover:bg-error-bg-dark flex items-center gap-1"
                           title="Delete invitation"
                         >
-                          <Trash2 className="w-3 h-3" /> Delete
+                          <Trash2 className="w-3 h-3" /> {t('common.delete')}
                         </button>
                       </div>
                     </div>
@@ -4247,10 +4325,10 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
       {showCreateUserModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-card dark:bg-card-dark rounded-card shadow-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-bold text-text-primary dark:text-text-primary-dark mb-4">Create New User</h3>
+            <h3 className="text-lg font-bold text-text-primary dark:text-text-primary-dark mb-4">{t('users.createNewUser')}</h3>
             <div className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">Email</label>
+                <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">{t('auth.emailLabel')}</label>
                 <input
                   type="email"
                   value={newUser.email}
@@ -4260,17 +4338,17 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">Password</label>
+                <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">{t('auth.passwordLabel')}</label>
                 <input
                   type="password"
                   value={newUser.password}
                   onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark focus:border-action dark:focus:border-action-dark"
-                  placeholder="Minimum 8 characters"
+                  placeholder={t('auth.passwordMin8')}
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">Role</label>
+                <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">{t('users.role')}</label>
                 <select
                   value={newUser.role}
                   onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
@@ -4289,7 +4367,7 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
                 }}
                 className="flex-1 px-4 py-2.5 bg-surface dark:bg-surface-dark text-text-primary dark:text-text-secondary-dark rounded-button font-medium hover:bg-surface dark:hover:bg-surface-dark"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleCreateUser}
@@ -4303,7 +4381,7 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
                 ) : (
                   <Save className="w-4 h-4" />
                 )}
-                {isSaving ? 'Creating...' : 'Create User'}
+                {isSaving ? t('common.creating') : t('users.createUser')}
               </button>
             </div>
           </div>
@@ -4314,10 +4392,10 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
       {showInviteModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-card dark:bg-card-dark rounded-card shadow-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-bold text-text-primary dark:text-text-primary-dark mb-4">Invite User</h3>
+            <h3 className="text-lg font-bold text-text-primary dark:text-text-primary-dark mb-4">{t('users.inviteUser')}</h3>
             <div className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">Email</label>
+                <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">{t('auth.emailLabel')}</label>
                 <input
                   type="email"
                   value={newInvitation.email}
@@ -4325,10 +4403,10 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
                   className="w-full px-4 py-2.5 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark focus:border-action dark:focus:border-action-dark"
                   placeholder="user@example.com"
                 />
-                <p className="text-xs text-text-muted dark:text-text-muted-dark mt-1">An invitation email will be sent to this address</p>
+                <p className="text-xs text-text-muted dark:text-text-muted-dark mt-1">{t('users.invitationEmailNote')}</p>
               </div>
               <div>
-                <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">Role</label>
+                <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">{t('users.role')}</label>
                 <select
                   value={newInvitation.role}
                   onChange={(e) => setNewInvitation({ ...newInvitation, role: e.target.value })}
@@ -4347,7 +4425,7 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
                 }}
                 className="flex-1 px-4 py-2.5 bg-surface dark:bg-surface-dark text-text-primary dark:text-text-secondary-dark rounded-button font-medium hover:bg-surface dark:hover:bg-surface-dark"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleSendInvitation}
@@ -4361,17 +4439,17 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
                 {isSaving ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    Sending...
+                    {t('users.sending')}
                   </>
                 ) : isSuccess ? (
                   <>
                     <Check className="w-4 h-4" />
-                    Sent!
+                    {t('users.sent')}
                   </>
                 ) : (
                   <>
                     <Save className="w-4 h-4" />
-                    Send Invitation
+                    {t('users.sendInvitation')}
                   </>
                 )}
               </button>
@@ -4384,6 +4462,7 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
 }
 
 function InvitationAcceptance({ apiCall, showAlert, API_ENDPOINT }) {
+  const { t } = useTranslation();
   const { token } = useParams();
   const navigate = useNavigate();
   const [invitation, setInvitation] = useState(null);
@@ -4489,7 +4568,7 @@ function InvitationAcceptance({ apiCall, showAlert, API_ENDPOINT }) {
       <div className="flex items-center justify-center min-h-screen bg-bg dark:bg-bg-dark">
         <div className="text-center">
           <RefreshCw className="w-8 h-8 animate-spin text-action dark:text-action-dark mx-auto mb-4" />
-          <p className="text-text-primary dark:text-text-primary-dark">Loading invitation...</p>
+          <p className="text-text-primary dark:text-text-primary-dark">{t('invitation.loadingInvitation')}</p>
         </div>
       </div>
     );
@@ -4500,13 +4579,13 @@ function InvitationAcceptance({ apiCall, showAlert, API_ENDPOINT }) {
       <div className="flex items-center justify-center min-h-screen bg-bg dark:bg-bg-dark p-4">
         <div className="max-w-md w-full bg-card dark:bg-card-dark rounded-card shadow-lg p-8 text-center">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h1 className="text-xl font-bold text-text-primary dark:text-text-primary-dark mb-2">Invitation Invalid</h1>
+          <h1 className="text-xl font-bold text-text-primary dark:text-text-primary-dark mb-2">{t('invitation.invitationInvalid')}</h1>
           <p className="text-text-secondary dark:text-text-secondary-dark mb-6">{error || 'This invitation link is not valid or has expired.'}</p>
           <button
             onClick={() => navigate('/')}
             className="w-full px-4 py-2.5 bg-action dark:bg-action-dark text-white rounded-button font-medium hover:bg-action-hover dark:hover:bg-action-hover-dark"
           >
-            Go to Login
+            {t('auth.loginButton')}
           </button>
         </div>
       </div>
@@ -4525,7 +4604,7 @@ function InvitationAcceptance({ apiCall, showAlert, API_ENDPOINT }) {
           <form onSubmit={handleAcceptInvitation} className="space-y-4">
             {/* Email display */}
             <div>
-              <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark block mb-2">Email</label>
+              <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark block mb-2">{t('auth.emailLabel')}</label>
               <input
                 type="email"
                 value={invitation.email}
@@ -4536,7 +4615,7 @@ function InvitationAcceptance({ apiCall, showAlert, API_ENDPOINT }) {
 
             {/* Password input */}
             <div>
-              <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark block mb-2">Password</label>
+              <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark block mb-2">{t('auth.passwordLabel')}</label>
               <input
                 type="password"
                 value={password}
@@ -4544,14 +4623,14 @@ function InvitationAcceptance({ apiCall, showAlert, API_ENDPOINT }) {
                   setPassword(e.target.value);
                   setPasswordError(null);
                 }}
-                placeholder="Enter password (min 8 characters)"
+                placeholder={t('auth.enterPassword')}
                 className="w-full px-4 py-2.5 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark focus:border-action dark:focus:border-action-dark"
               />
             </div>
 
             {/* Confirm password input */}
             <div>
-              <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark block mb-2">Confirm Password</label>
+              <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark block mb-2">{t('auth.confirmPassword')}</label>
               <input
                 type="password"
                 value={confirmPassword}
@@ -4559,7 +4638,7 @@ function InvitationAcceptance({ apiCall, showAlert, API_ENDPOINT }) {
                   setConfirmPassword(e.target.value);
                   setPasswordError(null);
                 }}
-                placeholder="Confirm password"
+                placeholder={t('auth.confirmNewPassword')}
                 className="w-full px-4 py-2.5 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark focus:border-action dark:focus:border-action-dark"
               />
             </div>
@@ -4580,12 +4659,12 @@ function InvitationAcceptance({ apiCall, showAlert, API_ENDPOINT }) {
               {isSubmitting ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  Creating Account...
+                  {t('invitation.creatingAccount')}
                 </>
               ) : (
                 <>
                   <Check className="w-4 h-4" />
-                  Accept Invitation
+                  {t('invitation.acceptInvitation')}
                 </>
               )}
             </button>
@@ -4601,6 +4680,7 @@ function InvitationAcceptance({ apiCall, showAlert, API_ENDPOINT }) {
 }
 
 function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAlert, showConfirm }) {
+  const { t } = useTranslation();
   // Initialize local settings with extracted base colors from existing data
   const initializeColorData = (colors) => {
     return colors.map(color => {
@@ -4751,7 +4831,8 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
           allow_theme_customisation: Boolean(localSettings.allow_theme_customisation),
           allow_image_customisation: Boolean(localSettings.allow_image_customisation),
           allow_links_customisation: Boolean(localSettings.allow_links_customisation),
-          allow_privacy_customisation: Boolean(localSettings.allow_privacy_customisation)
+          allow_privacy_customisation: Boolean(localSettings.allow_privacy_customisation),
+          default_language: localSettings.default_language || 'en'
         })
       });
 
@@ -4769,10 +4850,10 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
       } else {
         const errorData = await res.json().catch(() => ({}));
         console.error('Save failed:', res.status, errorData);
-        if (showAlert) showAlert(errorData.error || `Failed to save settings (${res.status})`, 'error');
+        if (showAlert) showAlert(errorData.error || t('errors.saveSettingsFailed'), 'error');
       }
     } catch (e) {
-      if (showAlert) showAlert('Error saving settings', 'error');
+      if (showAlert) showAlert(t('errors.saveSettingsError'), 'error');
     } finally {
       setIsSaving(false);
     }
@@ -4910,13 +4991,13 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
 
   const removeColor = (colorIndex) => {
     if (localSettings.theme_colors.length <= 1) {
-      if (showAlert) showAlert('You must have at least one color', 'error');
+      if (showAlert) showAlert(t('colors.mustHaveAtLeastOne'), 'error');
       return;
     }
     const colorName = localSettings.theme_colors[colorIndex]?.name;
     if (showConfirm) {
       showConfirm(
-        `Delete color "${colorName}"?`,
+        t('modals.deleteColorConfirm', { name: colorName }),
         () => {
           setLocalSettings(prev => ({
             ...prev,
@@ -4930,9 +5011,9 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
             setEditingColorIndex(editingColorIndex - 1);
           }
         },
-        'Delete Color',
-        'Delete',
-        'Cancel'
+        t('modals.deleteColor'),
+        t('common.delete'),
+        t('common.cancel')
       );
     }
   };
@@ -4946,7 +5027,7 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
               <ArrowLeft className="w-5 h-5"/>
             </button>
             <div>
-              <h1 className="text-xl font-bold text-text-primary dark:text-text-primary-dark">Organisation Settings</h1>
+              <h1 className="text-xl font-bold text-text-primary dark:text-text-primary-dark">{t('settings.organisationSettings')}</h1>
             </div>
           </div>
           <button 
@@ -4961,7 +5042,7 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
             ) : (
               <Save className="w-4 h-4" />
             )}
-            {isSaving ? 'Saving...' : 'Save'}
+            {isSaving ? t('common.saving') : t('common.save')}
           </button>
         </div>
 
@@ -4974,8 +5055,8 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
                 className="w-full flex items-center justify-between p-4 bg-surface dark:bg-card-dark/50 rounded-input hover:bg-surface dark:hover:bg-card-dark transition-colors"
               >
                 <div className="text-left">
-                  <h2 className="text-base font-semibold text-text-primary dark:text-text-primary-dark">Organisation Name</h2>
-                  <p className="text-sm text-text-secondary dark:text-text-muted-dark mt-1">This organisation name will be applied to all cards in your organisation. Users cannot change this.</p>
+                  <h2 className="text-base font-semibold text-text-primary dark:text-text-primary-dark">{t('settings.organisationName')}</h2>
+                  <p className="text-sm text-text-secondary dark:text-text-muted-dark mt-1">{t('settings.organisationNameDescription')}</p>
                 </div>
                 {isOrganisationNameOpen ? (
                   <ChevronUp className="w-5 h-5 text-text-secondary dark:text-text-muted-dark" />
@@ -4999,6 +5080,24 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
 
             <div className="h-px bg-surface dark:bg-surface-dark" />
 
+            {/* Default Language Section */}
+            <div>
+              <div className="p-4 bg-surface dark:bg-card-dark/50 rounded-input">
+                <h2 className="text-base font-semibold text-text-primary dark:text-text-primary-dark mb-1">{t('settings.defaultLanguage')}</h2>
+                <p className="text-sm text-text-secondary dark:text-text-muted-dark mb-3">{t('settings.defaultLanguageHelp')}</p>
+                <select
+                  value={localSettings.default_language || 'en'}
+                  onChange={(e) => setLocalSettings(prev => ({ ...prev, default_language: e.target.value }))}
+                  className="w-full max-w-xs bg-card dark:bg-surface-dark border border-border dark:border-border-dark text-text-primary dark:text-text-primary-dark rounded-input px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-action dark:focus:ring-action-dark"
+                >
+                  <option value="en">English</option>
+                  <option value="es">Español</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="h-px bg-surface dark:bg-surface-dark" />
+
             {/* Organization Override Toggles */}
             <div className="space-y-6">
               <button
@@ -5006,8 +5105,8 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
                 className="w-full flex items-center justify-between p-4 bg-surface dark:bg-card-dark/50 rounded-input hover:bg-surface dark:hover:bg-card-dark transition-colors"
               >
                 <div className="text-left">
-                  <h2 className="text-base font-semibold text-text-primary dark:text-text-primary-dark">User Customisation Controls</h2>
-                  <p className="text-sm text-text-secondary dark:text-text-muted-dark mt-1">Control what users in your organisation can customise on their cards.</p>
+                  <h2 className="text-base font-semibold text-text-primary dark:text-text-primary-dark">{t('settings.userCustomisation')}</h2>
+                  <p className="text-sm text-text-secondary dark:text-text-muted-dark mt-1">{t('settings.userCustomisationDescription')}</p>
                 </div>
                 {isCustomizationControlsOpen ? (
                   <ChevronUp className="w-5 h-5 text-text-secondary dark:text-text-muted-dark" />
@@ -5021,12 +5120,12 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
                   {/* Theme Customization Group */}
               <div className="bg-surface dark:bg-card-dark/50 rounded-input p-5 space-y-4">
                 <div>
-                  <h3 className="text-sm font-semibold text-text-primary dark:text-text-primary-dark mb-2">Theme Customisation</h3>
-                  <p className="text-xs text-text-secondary dark:text-text-muted-dark mb-4">Control whether users can choose theme colors for their cards.</p>
+                  <h3 className="text-sm font-semibold text-text-primary dark:text-text-primary-dark mb-2">{t('settings.themeCustomisation')}</h3>
+                  <p className="text-xs text-text-secondary dark:text-text-muted-dark mb-4">{t('settings.themeCustomisationDescription')}</p>
                 </div>
                 <Toggle
-                  label="Allow users to choose theme colors"
-                  description="When enabled, users can select from your organisation's theme colour palette. When disabled, cards will use the first colour in your palette."
+                  label={t('settings.allowThemeColors')}
+                  description={t('settings.whenEnabledThemeColors')}
                   checked={localSettings.allow_theme_customisation === true}
                   onChange={(checked) => setLocalSettings(prev => ({ ...prev, allow_theme_customisation: checked }))}
                 />
@@ -5035,12 +5134,12 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
               {/* Image Customization Group */}
               <div className="bg-surface dark:bg-card-dark/50 rounded-input p-5 space-y-4">
                 <div>
-                  <h3 className="text-sm font-semibold text-text-primary dark:text-text-primary-dark mb-2">Image Customisation</h3>
-                  <p className="text-xs text-text-secondary dark:text-text-muted-dark mb-4">Control whether users can upload custom avatars and banner images.</p>
+                  <h3 className="text-sm font-semibold text-text-primary dark:text-text-primary-dark mb-2">{t('settings.imageCustomisation')}</h3>
+                  <p className="text-xs text-text-secondary dark:text-text-muted-dark mb-4">{t('settings.imageCustomisationDescription')}</p>
                 </div>
                 <Toggle
-                  label="Allow users to upload custom avatars and banners"
-                  description="When enabled, users can upload their own images. When disabled, image uploads will be blocked."
+                  label={t('settings.allowImageUploads')}
+                  description={t('settings.whenEnabledImageUploads')}
                   checked={localSettings.allow_image_customisation === true}
                   onChange={(checked) => setLocalSettings(prev => ({ ...prev, allow_image_customisation: checked }))}
                 />
@@ -5049,12 +5148,12 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
               {/* Links Customization Group */}
               <div className="bg-surface dark:bg-card-dark/50 rounded-input p-5 space-y-4">
                 <div>
-                  <h3 className="text-sm font-semibold text-text-primary dark:text-text-primary-dark mb-2">Links Customisation</h3>
-                  <p className="text-xs text-text-secondary dark:text-text-muted-dark mb-4">Control whether users can add custom links to their cards.</p>
+                  <h3 className="text-sm font-semibold text-text-primary dark:text-text-primary-dark mb-2">{t('settings.linksCustomisation')}</h3>
+                  <p className="text-xs text-text-secondary dark:text-text-muted-dark mb-4">{t('settings.linksCustomisationDescription')}</p>
                 </div>
                 <Toggle
-                  label="Allow users to add custom links"
-                  description="When enabled, users can add custom links to their cards. When disabled, the links section will be locked."
+                  label={t('settings.allowCustomLinks')}
+                  description={t('settings.whenEnabledCustomLinks')}
                   checked={localSettings.allow_links_customisation === true}
                   onChange={(checked) => setLocalSettings(prev => ({ ...prev, allow_links_customisation: checked }))}
                 />
@@ -5063,12 +5162,12 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
               {/* Privacy Settings Group */}
               <div className="bg-surface dark:bg-card-dark/50 rounded-input p-5 space-y-4">
                 <div>
-                  <h3 className="text-sm font-semibold text-text-primary dark:text-text-primary-dark mb-2">Privacy Settings</h3>
-                  <p className="text-xs text-text-secondary dark:text-text-muted-dark mb-4">Control whether users can change privacy settings on their cards.</p>
+                  <h3 className="text-sm font-semibold text-text-primary dark:text-text-primary-dark mb-2">{t('settings.privacySettings')}</h3>
+                  <p className="text-xs text-text-secondary dark:text-text-muted-dark mb-4">{t('settings.privacySettingsDescription')}</p>
                 </div>
                 <Toggle
-                  label="Allow users to change privacy settings"
-                  description="When enabled, users can modify privacy options (require interaction, obfuscation, block robots). When disabled, privacy settings will be locked to organisation defaults."
+                  label={t('settings.allowPrivacySettings')}
+                  description={t('settings.whenEnabledPrivacySettings')}
                   checked={localSettings.allow_privacy_customisation === true}
                   onChange={(checked) => setLocalSettings(prev => ({ ...prev, allow_privacy_customisation: checked }))}
                 />
@@ -5086,8 +5185,8 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
                 className="w-full flex items-center justify-between p-4 bg-surface dark:bg-card-dark/50 rounded-input hover:bg-surface dark:hover:bg-card-dark transition-colors"
               >
                 <div className="text-left">
-                  <h2 className="text-base font-semibold text-text-primary dark:text-text-primary-dark">App Themes</h2>
-                  <p className="text-sm text-text-secondary dark:text-text-muted-dark mt-1">Choose the look for the app UI (backgrounds, chrome, buttons).</p>
+                  <h2 className="text-base font-semibold text-text-primary dark:text-text-primary-dark">{t('settings.appThemes')}</h2>
+                  <p className="text-sm text-text-secondary dark:text-text-muted-dark mt-1">{t('settings.appThemesDescription')}</p>
                 </div>
                 {isAppThemesOpen ? (
                   <ChevronUp className="w-5 h-5 text-text-secondary dark:text-text-muted-dark" />
@@ -5133,8 +5232,8 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
                 className="w-full flex items-center justify-between p-4 bg-surface dark:bg-card-dark/50 rounded-input hover:bg-surface dark:hover:bg-card-dark transition-colors"
               >
                 <div className="text-left">
-                  <h2 className="text-base font-semibold text-text-primary dark:text-text-primary-dark">Profile Colors</h2>
-                  <p className="text-sm text-text-secondary dark:text-text-muted-dark mt-1">Manage the color palette available for user cards.</p>
+                  <h2 className="text-base font-semibold text-text-primary dark:text-text-primary-dark">{t('settings.profileColors')}</h2>
+                  <p className="text-sm text-text-secondary dark:text-text-muted-dark mt-1">{t('settings.profileColorsDescription')}</p>
                 </div>
                 {isThemeColorsOpen ? (
                   <ChevronUp className="w-5 h-5 text-text-secondary dark:text-text-muted-dark" />
@@ -5150,7 +5249,7 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
                         onClick={addColor}
                         className="text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center gap-1 px-4 py-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-badge hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
                       >
-                        <Plus className="w-4 h-4" /> Add Color
+                        <Plus className="w-4 h-4" /> {t('colors.addColor')}
                       </button>
                     </div>
 
@@ -5319,7 +5418,7 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
 
       <div className="hidden lg:flex w-1/2 bg-main dark:bg-main-dark items-center justify-center p-10">
         <div className="bg-card dark:bg-card-dark rounded-card p-8 shadow-lg max-w-md w-full border border-border dark:border-border-dark relative z-10 isolate">
-          <h3 className="text-lg font-bold text-text-primary dark:text-text-primary-dark mb-4">Preview</h3>
+          <h3 className="text-lg font-bold text-text-primary dark:text-text-primary-dark mb-4">{t('settings.preview')}</h3>
           <div className="space-y-4">
             <div>
               <div className="text-sm text-text-secondary dark:text-text-muted-dark mb-2">Default Organisation:</div>
@@ -5395,6 +5494,7 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
 }
 
 function PlatformAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm }) {
+  const { t } = useTranslation();
   const [organisations, setOrganisations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -5419,10 +5519,10 @@ function PlatformAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm 
         const data = await res.json();
         setOrganisations(data.organisations);
       } else {
-        if (showAlert) showAlert('Failed to load organisations', 'error');
+        if (showAlert) showAlert(t('errors.loadOrgsFailed'), 'error');
       }
     } catch (e) {
-      if (showAlert) showAlert('Error loading organisations', 'error');
+      if (showAlert) showAlert(t('errors.loadOrgsError'), 'error');
     } finally {
       setIsLoading(false);
     }
@@ -5430,7 +5530,7 @@ function PlatformAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm 
 
   const handleCreateOrg = async () => {
     if (!newOrg.organisationName || !newOrg.ownerEmail || !newOrg.ownerPassword) {
-      if (showAlert) showAlert('All fields are required', 'error');
+      if (showAlert) showAlert(t('errors.allFieldsRequired'), 'error');
       return;
     }
     setIsSaving(true);
@@ -5447,10 +5547,10 @@ function PlatformAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm 
         fetchOrganisations();
       } else {
         const errorData = await res.json().catch(() => ({}));
-        if (showAlert) showAlert(errorData.error || 'Failed to create organisation', 'error');
+        if (showAlert) showAlert(errorData.error || t('errors.createOrgFailed'), 'error');
       }
     } catch (e) {
-      if (showAlert) showAlert('Error creating organisation', 'error');
+      if (showAlert) showAlert(t('errors.createOrgError'), 'error');
     } finally {
       setIsSaving(false);
     }
@@ -5459,26 +5559,26 @@ function PlatformAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm 
   const handleDeleteOrg = async (orgId, orgName) => {
     if (showConfirm) {
       showConfirm(
-        `Are you sure you want to permanently delete "${orgName}"? This will delete the organisation, all its users, and all their cards. This action cannot be undone.`,
+        t('modals.deleteOrgConfirm', { name: orgName }),
         async () => {
           try {
             const res = await apiCall(`${API_ENDPOINT}/platform/organisations/${orgId}`, {
               method: 'DELETE'
             });
             if (res.ok) {
-              if (showAlert) showAlert('Organisation deleted', 'success');
+              if (showAlert) showAlert(t('platform.orgDeleted'), 'success');
               fetchOrganisations();
             } else {
               const errorData = await res.json().catch(() => ({}));
-              if (showAlert) showAlert(errorData.error || 'Failed to delete organisation', 'error');
+              if (showAlert) showAlert(errorData.error || t('errors.deleteOrgFailed'), 'error');
             }
           } catch (e) {
-            if (showAlert) showAlert('Error deleting organisation', 'error');
+            if (showAlert) showAlert(t('errors.deleteOrgError'), 'error');
           }
         },
-        'Delete Organisation',
-        'Delete',
-        'Cancel'
+        t('modals.deleteOrganisation'),
+        t('common.delete'),
+        t('common.cancel')
       );
     }
   };
@@ -5492,11 +5592,11 @@ function PlatformAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm 
         const data = await res.json();
         setOrgSettings(data);
       } else {
-        if (showAlert) showAlert('Failed to load settings', 'error');
+        if (showAlert) showAlert(t('errors.loadSettingsFailed'), 'error');
         setEditingOrg(null);
       }
     } catch (e) {
-      if (showAlert) showAlert('Error loading settings', 'error');
+      if (showAlert) showAlert(t('errors.loadSettingsError'), 'error');
       setEditingOrg(null);
     } finally {
       setIsLoadingSettings(false);
@@ -5512,15 +5612,15 @@ function PlatformAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm 
         body: JSON.stringify(orgSettings)
       });
       if (res.ok) {
-        if (showAlert) showAlert('Settings saved', 'success');
+        if (showAlert) showAlert(t('settings.settingsSaved'), 'success');
         setEditingOrg(null);
         setOrgSettings(null);
       } else {
         const errorData = await res.json().catch(() => ({}));
-        if (showAlert) showAlert(errorData.error || 'Failed to save settings', 'error');
+        if (showAlert) showAlert(errorData.error || t('errors.saveSettingsFailed'), 'error');
       }
     } catch (e) {
-      if (showAlert) showAlert('Error saving settings', 'error');
+      if (showAlert) showAlert(t('errors.saveSettingsError'), 'error');
     } finally {
       setIsSavingSettings(false);
     }
@@ -5581,15 +5681,15 @@ function PlatformAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm 
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
-              <h1 className="text-xl font-bold text-text-primary dark:text-text-primary-dark">Platform Administration</h1>
-              <p className="text-sm text-text-secondary dark:text-text-muted-dark">Manage all organisations</p>
+              <h1 className="text-xl font-bold text-text-primary dark:text-text-primary-dark">{t('platform.platformAdmin')}</h1>
+              <p className="text-sm text-text-secondary dark:text-text-muted-dark">{t('platform.manageAllOrganisations')}</p>
             </div>
           </div>
           <button
             onClick={() => setShowCreateModal(true)}
             className="px-4 py-2 bg-action dark:bg-action-dark text-white rounded-full text-sm font-bold flex items-center gap-2 hover:bg-action-hover dark:hover:bg-action-hover-dark"
           >
-            <Plus className="w-4 h-4" /> Create Organisation
+            <Plus className="w-4 h-4" /> {t('platform.createOrganisation')}
           </button>
         </div>
       </div>
@@ -5597,18 +5697,18 @@ function PlatformAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm 
       <div className="flex-1 p-6 max-w-6xl mx-auto w-full">
         {isLoading ? (
           <div className="text-center py-12">
-            <div className="text-text-secondary dark:text-text-muted-dark">Loading organisations...</div>
+            <div className="text-text-secondary dark:text-text-muted-dark">{t('platform.loadingOrganisations')}</div>
           </div>
         ) : (
           <div className="bg-card dark:bg-card-dark rounded-input shadow-sm border border-border dark:border-border-dark overflow-hidden">
             <div className="p-6 border-b border-border dark:border-border-dark">
-              <h2 className="text-lg font-semibold text-text-primary dark:text-text-primary-dark">Organisations</h2>
+              <h2 className="text-lg font-semibold text-text-primary dark:text-text-primary-dark">{t('platform.organisations')}</h2>
               <p className="text-sm text-text-secondary dark:text-text-muted-dark mt-1">{organisations.length} organisation{organisations.length !== 1 ? 's' : ''} on this platform</p>
             </div>
             <div className="divide-y divide-slate-200 dark:divide-slate-700">
               {organisations.length === 0 ? (
                 <div className="p-6 text-center text-text-muted dark:text-text-muted-dark">
-                  No organisations found
+                  {t('platform.noOrganisationsFound')}
                 </div>
               ) : (
                 organisations.map((org) => (
@@ -5653,29 +5753,29 @@ function PlatformAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm 
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-card dark:bg-card-dark rounded-card shadow-xl max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-text-primary dark:text-text-primary-dark">Create Organisation</h2>
+              <h2 className="text-xl font-bold text-text-primary dark:text-text-primary-dark">{t('platform.createOrganisation')}</h2>
               <button onClick={() => setShowCreateModal(false)} className="p-2 hover:bg-surface dark:hover:bg-surface-dark rounded-full text-text-muted dark:text-text-muted-dark">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-text-secondary dark:text-text-secondary-dark mb-1">Organisation Name</label>
+                <label className="block text-sm font-medium text-text-secondary dark:text-text-secondary-dark mb-1">{t('setup.organisationNameLabel')}</label>
                 <input type="text" value={newOrg.organisationName} onChange={(e) => setNewOrg({ ...newOrg, organisationName: e.target.value })} className="w-full px-3 py-2 bg-main dark:bg-main-dark border border-border dark:border-border-dark rounded-input text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-action dark:focus:ring-action-dark" placeholder="Acme Corp" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-text-secondary dark:text-text-secondary-dark mb-1">Owner Email</label>
+                <label className="block text-sm font-medium text-text-secondary dark:text-text-secondary-dark mb-1">{t('platform.ownerEmail')}</label>
                 <input type="email" value={newOrg.ownerEmail} onChange={(e) => setNewOrg({ ...newOrg, ownerEmail: e.target.value })} className="w-full px-3 py-2 bg-main dark:bg-main-dark border border-border dark:border-border-dark rounded-input text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-action dark:focus:ring-action-dark" placeholder="owner@example.com" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-text-secondary dark:text-text-secondary-dark mb-1">Owner Password</label>
-                <input type="password" value={newOrg.ownerPassword} onChange={(e) => setNewOrg({ ...newOrg, ownerPassword: e.target.value })} className="w-full px-3 py-2 bg-main dark:bg-main-dark border border-border dark:border-border-dark rounded-input text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-action dark:focus:ring-action-dark" placeholder="Min. 8 characters" />
+                <label className="block text-sm font-medium text-text-secondary dark:text-text-secondary-dark mb-1">{t('platform.ownerPassword')}</label>
+                <input type="password" value={newOrg.ownerPassword} onChange={(e) => setNewOrg({ ...newOrg, ownerPassword: e.target.value })} className="w-full px-3 py-2 bg-main dark:bg-main-dark border border-border dark:border-border-dark rounded-input text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-action dark:focus:ring-action-dark" placeholder={t('auth.min8Characters')} />
               </div>
             </div>
             <div className="flex gap-3 mt-6">
-              <button onClick={() => setShowCreateModal(false)} className="flex-1 px-4 py-2 border border-border dark:border-border-dark rounded-full text-text-secondary dark:text-text-secondary-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors text-sm font-medium">Cancel</button>
+              <button onClick={() => setShowCreateModal(false)} className="flex-1 px-4 py-2 border border-border dark:border-border-dark rounded-full text-text-secondary dark:text-text-secondary-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors text-sm font-medium">{t('common.cancel')}</button>
               <button onClick={handleCreateOrg} disabled={isSaving} className="flex-1 px-4 py-2 bg-action dark:bg-action-dark text-white rounded-full text-sm font-bold hover:bg-action-hover dark:hover:bg-action-hover-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-                {isSaving ? (<><RefreshCw className="w-4 h-4 animate-spin" /> Creating...</>) : isSuccess ? (<><Check className="w-4 h-4" /> Created!</>) : ('Create Organisation')}
+                {isSaving ? (<><RefreshCw className="w-4 h-4 animate-spin" /> {t('common.creating')}</>) : isSuccess ? (<><Check className="w-4 h-4" /> {t('platform.created')}</>) : (t('platform.createOrganisation'))}
               </button>
             </div>
           </div>
@@ -5688,7 +5788,7 @@ function PlatformAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm 
           <div className="bg-card dark:bg-card-dark rounded-card shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-xl font-bold text-text-primary dark:text-text-primary-dark">Organisation Settings</h2>
+                <h2 className="text-xl font-bold text-text-primary dark:text-text-primary-dark">{t('settings.organisationSettings')}</h2>
                 <p className="text-sm text-text-muted dark:text-text-muted-dark mt-1">{editingOrg.name}</p>
               </div>
               <button onClick={() => { setEditingOrg(null); setOrgSettings(null); }} className="p-2 hover:bg-surface dark:hover:bg-surface-dark rounded-full text-text-muted dark:text-text-muted-dark">
@@ -5697,21 +5797,21 @@ function PlatformAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm 
             </div>
 
             {isLoadingSettings ? (
-              <div className="text-center py-12 text-text-muted dark:text-text-muted-dark">Loading settings...</div>
+              <div className="text-center py-12 text-text-muted dark:text-text-muted-dark">{t('platform.loadingSettings')}</div>
             ) : orgSettings ? (
               <div className="space-y-6">
                 {/* Organisation Name */}
                 <div>
-                  <label className="block text-sm font-medium text-text-secondary dark:text-text-secondary-dark mb-1">Organisation Name</label>
+                  <label className="block text-sm font-medium text-text-secondary dark:text-text-secondary-dark mb-1">{t('settings.organisationName')}</label>
                   <input type="text" value={orgSettings.default_organisation || ''} onChange={(e) => setOrgSettings({ ...orgSettings, default_organisation: e.target.value })} className="w-full px-3 py-2 bg-main dark:bg-main-dark border border-border dark:border-border-dark rounded-input text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-action dark:focus:ring-action-dark" />
-                  <p className="text-xs text-text-muted dark:text-text-muted-dark mt-1">Applied to all cards in this organisation</p>
+                  <p className="text-xs text-text-muted dark:text-text-muted-dark mt-1">{t('platform.appliedToAllCards')}</p>
                 </div>
 
                 {/* User Customisation Controls */}
                 <div className="border border-border dark:border-border-dark rounded-input overflow-hidden">
                   <div className="p-4 bg-surface dark:bg-surface-dark border-b border-border dark:border-border-dark">
-                    <h3 className="text-sm font-semibold text-text-primary dark:text-text-primary-dark">User Customisation Controls</h3>
-                    <p className="text-xs text-text-muted dark:text-text-muted-dark mt-1">Control what organisation users can customise on their cards</p>
+                    <h3 className="text-sm font-semibold text-text-primary dark:text-text-primary-dark">{t('settings.userCustomisation')}</h3>
+                    <p className="text-xs text-text-muted dark:text-text-muted-dark mt-1">{t('settings.userCustomisationDescription')}</p>
                   </div>
                   <div className="p-4 space-y-4">
                     <Toggle label="Theme Customisation" description="Allow users to choose theme colors from the palette" checked={orgSettings.allow_theme_customisation === true} onChange={(v) => setOrgSettings({ ...orgSettings, allow_theme_customisation: v })} />
@@ -5725,16 +5825,16 @@ function PlatformAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm 
                 <div className="border border-border dark:border-border-dark rounded-input overflow-hidden">
                   <div className="p-4 bg-surface dark:bg-surface-dark border-b border-border dark:border-border-dark flex items-center justify-between">
                     <div>
-                      <h3 className="text-sm font-semibold text-text-primary dark:text-text-primary-dark">Profile Colors</h3>
-                      <p className="text-xs text-text-muted dark:text-text-muted-dark mt-1">Color palette available to this organisation's cards</p>
+                      <h3 className="text-sm font-semibold text-text-primary dark:text-text-primary-dark">{t('settings.profileColors')}</h3>
+                      <p className="text-xs text-text-muted dark:text-text-muted-dark mt-1">{t('settings.profileColorsOrg')}</p>
                     </div>
                     <button onClick={handleAddColor} className="px-3 py-1.5 bg-action dark:bg-action-dark text-white rounded-full text-xs font-bold flex items-center gap-1 hover:bg-action-hover dark:hover:bg-action-hover-dark">
-                      <Plus className="w-3 h-3" /> Add Color
+                      <Plus className="w-3 h-3" /> {t('colors.addColor')}
                     </button>
                   </div>
                   <div className="p-4 space-y-3">
                     {(orgSettings.theme_colors || []).length === 0 ? (
-                      <p className="text-sm text-text-muted dark:text-text-muted-dark text-center py-4">No colors defined. Add a color to get started.</p>
+                      <p className="text-sm text-text-muted dark:text-text-muted-dark text-center py-4">{t('colors.noColorsDefined')}</p>
                     ) : (
                       (orgSettings.theme_colors || []).map((color, idx) => (
                         <div key={idx} className="flex items-center gap-3 p-3 bg-surface dark:bg-surface-dark rounded-input">
@@ -5759,9 +5859,9 @@ function PlatformAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm 
 
                 {/* Save / Cancel */}
                 <div className="flex gap-3 pt-2">
-                  <button onClick={() => { setEditingOrg(null); setOrgSettings(null); }} className="flex-1 px-4 py-2 border border-border dark:border-border-dark rounded-full text-text-secondary dark:text-text-secondary-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors text-sm font-medium">Cancel</button>
+                  <button onClick={() => { setEditingOrg(null); setOrgSettings(null); }} className="flex-1 px-4 py-2 border border-border dark:border-border-dark rounded-full text-text-secondary dark:text-text-secondary-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors text-sm font-medium">{t('common.cancel')}</button>
                   <button onClick={handleSaveSettings} disabled={isSavingSettings} className="flex-1 px-4 py-2 bg-action dark:bg-action-dark text-white rounded-full text-sm font-bold hover:bg-action-hover dark:hover:bg-action-hover-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-                    {isSavingSettings ? (<><RefreshCw className="w-4 h-4 animate-spin" /> Saving...</>) : (<><Save className="w-4 h-4" /> Save Settings</>)}
+                    {isSavingSettings ? (<><RefreshCw className="w-4 h-4 animate-spin" /> {t('common.saving')}</>) : (<><Save className="w-4 h-4" /> {t('platform.saveSettings')}</>)}
                   </button>
                 </div>
               </div>

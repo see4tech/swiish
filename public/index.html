@@ -35,6 +35,11 @@
         } else {
           document.documentElement.classList.remove('dark');
         }
+        // Set HTML lang attribute from stored language preference
+        var lang = localStorage.getItem('i18nextLng');
+        if (lang) {
+          document.documentElement.lang = lang.substring(0, 2);
+        }
       })();
     </script>
     <style>
