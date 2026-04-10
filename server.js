@@ -552,14 +552,24 @@ const requireRole = (...allowedRoles) => {
 };
 
 // Platform admin access control middleware
+// Verifies against the DB so that users promoted after their last login don't need to re-login.
 const requirePlatformAdmin = (req, res, next) => {
-  if (!req.user) {
+  if (!req.user || !req.user.id) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
-  if (!req.user.isPlatformAdmin) {
-    return res.status(403).json({ error: 'Forbidden: Platform admin access required' });
+  // Fast path: JWT already carries the claim
+  if (req.user.isPlatformAdmin) {
+    return next();
   }
-  next();
+  // Slow path: JWT is stale (e.g. user was promoted after their last login) — check DB
+  db.get('SELECT is_platform_admin FROM users WHERE id = ?', [req.user.id], (err, row) => {
+    if (err) return next(err);
+    if (!row || row.is_platform_admin !== 1) {
+      return res.status(403).json({ error: 'Forbidden: Platform admin access required' });
+    }
+    req.user.isPlatformAdmin = true; // update in-request cache
+    next();
+  });
 };
 
 // Error handling middleware
