@@ -1559,24 +1559,35 @@ const [settings, setSettings] = useState({
       return;
     }
     // Store userId for this new card if provided
+    const proceed = (effectiveSettings) => {
+      setCreateCardModal({ isOpen: false, slug: '', userId: null });
+      setCurrentSlug(slug);
+      setData(getDefaultTemplate(effectiveSettings));
+      setView('admin-editor');
+      navigate(`/people/edit/${slug}`);
+    };
+
     if (createCardModal.userId) {
       setTargetUserIdForNewCard(createCardModal.userId);
       // Super admin: fetch org settings for the target user so the editor shows the right org
       if (isSuperAdmin) {
         apiCall(`${API_ENDPOINT}/superadmin/users/${createCardModal.userId}/settings`)
           .then(r => r.ok ? r.json() : null)
-          .then(s => setEditorSettingsOverride(s || null))
-          .catch(() => setEditorSettingsOverride(null));
+          .then(s => {
+            const override = s || null;
+            setEditorSettingsOverride(override);
+            proceed(override || settings);
+          })
+          .catch(() => {
+            setEditorSettingsOverride(null);
+            proceed(settings);
+          });
+        return; // wait for async fetch
       }
     } else {
       setEditorSettingsOverride(null);
     }
-    setCreateCardModal({ isOpen: false, slug: '', userId: null });
-    setCurrentSlug(slug);
-    setData(getDefaultTemplate(settings));
-    setView('admin-editor');
-    // Navigate to editor route, just like handleEdit does
-    navigate(`/people/edit/${slug}`);
+    proceed(settings);
   };
 
   const handleCreateCardCancel = () => {
