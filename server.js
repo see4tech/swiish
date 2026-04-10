@@ -843,14 +843,14 @@ app.post('/api/upload', requireAuth, uploadLimiter, csrfProtection, upload.singl
 
     // Verify extension matches MIME type
     const ext = path.extname(req.file.filename).toLowerCase();
-    const expectedExt = {
-      'image/jpeg': '.jpg',
-      'image/png': '.png',
-      'image/webp': '.webp',
-      'image/gif': '.gif'
+    const expectedExts = {
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/png': ['.png'],
+      'image/webp': ['.webp'],
+      'image/gif': ['.gif']
     };
-    
-    if (expectedExt[fileType.mime] !== ext) {
+
+    if (!expectedExts[fileType.mime] || !expectedExts[fileType.mime].includes(ext)) {
       try {
         const safePath = validateFilePath(filePath);
         await fs.promises.unlink(safePath);
