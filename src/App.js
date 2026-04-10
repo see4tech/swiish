@@ -913,15 +913,14 @@ const [settings, setSettings] = useState({
         }
       });
     } else if (path === '/admin') {
-      if (!isAuthenticated) {
-        navigate('/login');
-      } else if (!isPlatformAdmin) {
-        navigate('/people');
-      } else {
-        fetchCsrfToken();
-        setView('platform-admin');
-        document.title = 'Platform Admin';
-      }
+      setView('platform-admin');
+      document.title = 'Platform Admin';
+      fetchCsrfToken();
+      checkAuth().then((authResult) => {
+        if (!authResult.isAuthenticated) {
+          navigate('/login');
+        }
+      });
     } else if (path === '/' || path === '/people') {
       // Check demo mode status first (will be known from setup/status response)
       fetchCsrfToken();
@@ -1005,7 +1004,7 @@ const [settings, setSettings] = useState({
         document.title = "Initial Setup";
       });
     }
-  }, [location.pathname, navigate, isAuthenticated, isPlatformAdmin]);
+  }, [location.pathname, navigate]);
 
 
   // checkAuth: Only updates state, never navigates
