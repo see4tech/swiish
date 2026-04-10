@@ -350,7 +350,7 @@ app.use((req, res, next) => {
 // Security headers - configure CSP with connect-src for GitHub API
 const cspDirectives = {
   defaultSrc: ["'self'"],
-  imgSrc: ["'self'", "data:", "https:"],
+  imgSrc: ["'self'", "data:", "blob:", "https:"],
   styleSrc: ["'self'", "'unsafe-inline'"], // Keep for CSS (less critical)
   fontSrc: ["'self'", "data:"],
   // Allow debug logging endpoint in development only (for development debugging)
@@ -1754,7 +1754,7 @@ app.delete('/api/cards/:slug', requireAuth, apiLimiter, csrfProtection, [
 const getOrganizationSettings = (organisationId, callback) => {
   db.all("SELECT key, value FROM organisation_settings WHERE organisation_id = ?", [organisationId], (err, rows) => {
     if (err) return callback(err, null);
-    
+
     const settings = {};
     rows.forEach(row => {
       try {
@@ -1769,19 +1769,28 @@ const getOrganizationSettings = (organisationId, callback) => {
         console.error(`Error parsing setting ${row.key}:`, e);
       }
     });
-    
-    // Ensure defaults
-    if (!settings.default_organisation) settings.default_organisation = 'My Organisation';
-    if (!settings.theme_colors || !Array.isArray(settings.theme_colors)) {
-      settings.theme_colors = getDefaultThemeColors();
+
+    const applyDefaults = () => {
+      if (!settings.theme_colors || !Array.isArray(settings.theme_colors)) {
+        settings.theme_colors = getDefaultThemeColors();
+      }
+      if (!settings.theme_variant) settings.theme_variant = 'swiish';
+      if (settings.allow_theme_customisation === undefined) settings.allow_theme_customisation = true;
+      if (settings.allow_image_customisation === undefined) settings.allow_image_customisation = true;
+      if (settings.allow_links_customisation === undefined) settings.allow_links_customisation = true;
+      if (settings.allow_privacy_customisation === undefined) settings.allow_privacy_customisation = true;
+      callback(null, settings);
+    };
+
+    // Use real org name if default_organisation not yet configured
+    if (!settings.default_organisation) {
+      db.get('SELECT name FROM organisations WHERE id = ?', [organisationId], (err2, org) => {
+        settings.default_organisation = (org && org.name) ? org.name : 'My Organisation';
+        applyDefaults();
+      });
+    } else {
+      applyDefaults();
     }
-    if (!settings.theme_variant) settings.theme_variant = 'swiish';
-    if (settings.allow_theme_customisation === undefined) settings.allow_theme_customisation = true;
-    if (settings.allow_image_customisation === undefined) settings.allow_image_customisation = true;
-    if (settings.allow_links_customisation === undefined) settings.allow_links_customisation = true;
-    if (settings.allow_privacy_customisation === undefined) settings.allow_privacy_customisation = true;
-    
-    callback(null, settings);
   });
 };
 
