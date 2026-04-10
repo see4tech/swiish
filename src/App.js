@@ -6,6 +6,7 @@ import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import flags from 'country-flag-icons/react/3x2';
 import Cropper from 'react-easy-crop';
+import 'react-easy-crop/react-easy-crop.css';
 import {
   Camera, Upload, Save, Share2, Phone, Mail, Globe,
   Linkedin, Twitter, Instagram, Github, Edit3, Eye,
