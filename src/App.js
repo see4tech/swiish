@@ -1024,9 +1024,15 @@ const [settings, setSettings] = useState({
           setView('loading');
           checkAuth().then((authResult) => {
             if (authResult.isAuthenticated) {
-              // Demo mode: always show dashboard for demo user (owner role)
-              setView('admin-dashboard');
-              document.title = t("common.adminDashboard");
+              if (authResult.userData?.isSuperAdmin === true) {
+                setView('super-admin');
+                document.title = t('superAdmin.title');
+                navigate('/superadmin');
+              } else {
+                // Demo mode: always show dashboard for demo user (owner role)
+                setView('admin-dashboard');
+                document.title = t("common.adminDashboard");
+              }
             } else {
               // This shouldn't happen in demo mode, but fallback to login just in case
               navigate('/login');
@@ -1059,6 +1065,13 @@ const [settings, setSettings] = useState({
           setView('loading');
           checkAuth().then((authResult) => {
             if (authResult.isAuthenticated) {
+              // Super admins always land on their management view
+              if (authResult.userData?.isSuperAdmin === true) {
+                setView('super-admin');
+                document.title = t('superAdmin.title');
+                navigate('/superadmin');
+                return;
+              }
               // Determine view based on role and route
               if (authResult.userData.role === 'member') {
                 if (authResult.cardList.length === 0) {
@@ -1458,8 +1471,12 @@ const [settings, setSettings] = useState({
         await fetchCsrfToken();
         const authResult = await checkAuth();
         if (authResult.isAuthenticated) {
-          // Navigate to dashboard after successful login (explicit user action)
-          navigate('/people');
+          // Super admins go directly to their admin view
+          if (authResult.userData?.isSuperAdmin === true) {
+            navigate('/superadmin');
+          } else {
+            navigate('/people');
+          }
         }
       } else {
         const errorData = await res.json().catch(() => ({}));
