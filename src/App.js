@@ -1855,7 +1855,7 @@ const [settings, setSettings] = useState({
                    </button>
                  )}
                  {isPlatformAdmin && (
-                   <button onClick={() => navigate('/admin')} className="px-3 py-2 md:px-4 md:py-3 rounded-full font-medium text-text-secondary dark:text-text-secondary-dark bg-card dark:bg-card-dark border border-border dark:border-border-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors whitespace-nowrap flex items-center gap-2 text-sm md:text-base">
+                   <button onClick={() => { setView('platform-admin'); document.title = 'Platform Admin'; navigate('/admin'); }} className="px-3 py-2 md:px-4 md:py-3 rounded-full font-medium text-text-secondary dark:text-text-secondary-dark bg-card dark:bg-card-dark border border-border dark:border-border-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors whitespace-nowrap flex items-center gap-2 text-sm md:text-base">
                      <Shield className="w-4 h-4" /> <span className="hidden sm:inline">Platform</span><span className="sm:hidden">Admin</span>
                    </button>
                  )}
