@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Routes, Route, useNavigate, useLocation, useParams } from 'react-router-dom';
 import DOMPurify from 'dompurify';
 import PhoneInput from 'react-phone-number-input';
@@ -3966,8 +3967,8 @@ function CropModal({ image, aspect, onComplete, onCancel }) {
     onComplete(blob);
   };
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black/90 flex flex-col">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] bg-black/90 flex flex-col">
       <div className="flex-1 relative">
         <Cropper
           image={image}
@@ -4008,7 +4009,8 @@ function CropModal({ image, aspect, onComplete, onCancel }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
