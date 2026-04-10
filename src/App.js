@@ -3978,11 +3978,13 @@ function CropModal({ image, aspect, onComplete, onCancel }) {
     onComplete(blob);
   };
 
-  const cropAreaHeight = aspect === 1 ? 320 : 220;
+  const isAvatar = aspect === 1;
+  const cropAreaHeight = isAvatar ? 320 : 260;
+  const modalMaxWidth = isAvatar ? 'max-w-md' : 'max-w-2xl';
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center p-4">
-      <div className="bg-card dark:bg-card-dark rounded-card shadow-2xl w-full max-w-md flex flex-col overflow-hidden">
+      <div className={`bg-card dark:bg-card-dark rounded-card shadow-2xl w-full ${modalMaxWidth} flex flex-col overflow-hidden`}>
         {/* Cropper area — explicit height so react-easy-crop renders the image */}
         <div className="relative w-full bg-black" style={{ height: cropAreaHeight }}>
           <Cropper
