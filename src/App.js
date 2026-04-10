@@ -4,6 +4,7 @@ import DOMPurify from 'dompurify';
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import flags from 'country-flag-icons/react/3x2';
+import Cropper from 'react-easy-crop';
 import {
   Camera, Upload, Save, Share2, Phone, Mail, Globe,
   Linkedin, Twitter, Instagram, Github, Edit3, Eye,
@@ -172,11 +173,38 @@ const sanitizeText = (text) => {
 // Helper function to sanitize HTML content (for bio)
 const sanitizeHTML = (html) => {
   if (!html) return '';
-  return DOMPurify.sanitize(html, { 
+  return DOMPurify.sanitize(html, {
     ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u'],
     ALLOWED_ATTR: []
   });
 };
+
+// Image crop utilities
+function createImage(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.addEventListener('load', () => resolve(img));
+    img.addEventListener('error', reject);
+    img.crossOrigin = 'anonymous';
+    img.src = url;
+  });
+}
+
+async function getCroppedImg(imageSrc, pixelCrop, outputWidth, outputHeight) {
+  const image = await createImage(imageSrc);
+  const canvas = document.createElement('canvas');
+  canvas.width = outputWidth || pixelCrop.width;
+  canvas.height = outputHeight || pixelCrop.height;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(
+    image,
+    pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height,
+    0, 0, canvas.width, canvas.height
+  );
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.85);
+  });
+}
 
 // --- ICONS MAPPING ---
 const ICON_MAP = {
@@ -3303,13 +3331,25 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
     setData(prev => ({ ...prev, [section]: { ...prev[section], [field]: value } }));
   };
 
-  const handleImageUpload = async (type, e) => {
+  const [cropState, setCropState] = useState(null);
+
+  const handleFileSelect = (type, e) => {
     const file = e.target.files[0];
     if (!file) return;
+    const imageUrl = URL.createObjectURL(file);
+    setCropState({ type, imageUrl, aspect: type === 'avatar' ? 1 : 3.2 });
+    // Reset input so same file can be re-selected
+    e.target.value = '';
+  };
+
+  const handleCropComplete = async (blob) => {
+    const type = cropState.type;
+    URL.revokeObjectURL(cropState.imageUrl);
+    setCropState(null);
 
     setIsUploading(true);
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('file', blob, `${type}.jpg`);
 
     try {
       const res = await fetch(`${API_ENDPOINT}/upload`, {
@@ -3320,7 +3360,7 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
         },
         body: formData
       });
-      
+
       if (res.ok) {
         const { url } = await res.json();
         setData(prev => ({ ...prev, images: { ...prev.images, [type]: url } }));
@@ -3333,6 +3373,11 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
     } finally {
       setIsUploading(false);
     }
+  };
+
+  const handleCropCancel = () => {
+    if (cropState) URL.revokeObjectURL(cropState.imageUrl);
+    setCropState(null);
   };
 
   const addLink = () => {
@@ -3594,9 +3639,17 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
                 ) : (
                   <>
                     {isUploading && <div className="text-center text-sm text-indigo-600 dark:text-indigo-400 animate-pulse">{t('editor.uploadingImage')}</div>}
-                    <ImageUpload label={t('editor.profilePicture')} image={data.images.avatar} onUpload={e => handleImageUpload('avatar', e)} onRemove={() => handleInputChange('images', 'avatar', null)} />
-                    <ImageUpload label={t('editor.headerBanner')} image={data.images.banner} onUpload={e => handleImageUpload('banner', e)} onRemove={() => handleInputChange('images', 'banner', null)} isBanner />
+                    <ImageUpload label={t('editor.profilePicture')} image={data.images.avatar} onUpload={e => handleFileSelect('avatar', e)} onRemove={() => handleInputChange('images', 'avatar', null)} />
+                    <ImageUpload label={t('editor.headerBanner')} image={data.images.banner} onUpload={e => handleFileSelect('banner', e)} onRemove={() => handleInputChange('images', 'banner', null)} isBanner />
                   </>
+                )}
+                {cropState && (
+                  <CropModal
+                    image={cropState.imageUrl}
+                    aspect={cropState.aspect}
+                    onComplete={handleCropComplete}
+                    onCancel={handleCropCancel}
+                  />
                 )}
               </div>
            )}
@@ -3781,11 +3834,75 @@ function ImageUpload({ label, image, onUpload, onRemove, isBanner, disabled = fa
     <section>
       <h3 className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-3">{label}</h3>
       <div className={`relative ${isBanner ? 'w-full h-32' : 'w-24 h-24'} rounded-input bg-surface dark:bg-surface-dark border-thick border-dashed border-border dark:border-border-dark flex items-center justify-center overflow-hidden group ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-border-dark dark:hover:border-border-dark'} transition-colors`}>
-        {image ? <img src={image} className="w-full h-full object-cover" alt="upload" /> : <div className="text-center text-text-muted-subtle dark:text-text-muted-dark pointer-events-none"><Upload className="w-6 h-6 mx-auto mb-1" /><span className="text-xs">Upload</span></div>}
+        {image ? <img src={image} className="w-full h-full object-cover" alt="upload" /> : <div className="text-center text-text-muted-subtle dark:text-text-muted-dark pointer-events-none"><Upload className="w-6 h-6 mx-auto mb-1" /><span className="text-xs">{t('editor.uploadImage')}</span></div>}
         <input type="file" accept="image/*" onChange={onUpload} disabled={disabled} className="absolute inset-0 opacity-0 cursor-pointer appearance-none bg-transparent focus:outline-none disabled:cursor-not-allowed" />
       </div>
       {image && !disabled && <button onClick={onRemove} className="mt-2 text-sm text-red-500 dark:text-red-400 font-medium hover:text-red-600 dark:hover:text-red-300">{t('editor.removeImage')}</button>}
     </section>
+  );
+}
+
+function CropModal({ image, aspect, onComplete, onCancel }) {
+  const { t } = useTranslation();
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+
+  const onCropComplete = useCallback((croppedArea, croppedPixels) => {
+    setCroppedAreaPixels(croppedPixels);
+  }, []);
+
+  const handleApply = async () => {
+    if (!croppedAreaPixels) return;
+    const outputWidth = aspect === 1 ? 384 : 1280;
+    const outputHeight = aspect === 1 ? 384 : 400;
+    const blob = await getCroppedImg(image, croppedAreaPixels, outputWidth, outputHeight);
+    onComplete(blob);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/90 flex flex-col">
+      <div className="flex-1 relative">
+        <Cropper
+          image={image}
+          crop={crop}
+          zoom={zoom}
+          aspect={aspect}
+          onCropChange={setCrop}
+          onZoomChange={setZoom}
+          onCropComplete={onCropComplete}
+        />
+      </div>
+      <div className="bg-card dark:bg-card-dark border-t border-border dark:border-border-dark p-4 space-y-3">
+        <p className="text-xs text-text-muted dark:text-text-muted-dark text-center">{t('editor.cropDescription')}</p>
+        <div className="flex items-center gap-3 px-4">
+          <span className="text-xs text-text-muted dark:text-text-muted-dark whitespace-nowrap">{t('editor.zoomLabel')}</span>
+          <input
+            type="range"
+            min={1}
+            max={3}
+            step={0.1}
+            value={zoom}
+            onChange={(e) => setZoom(Number(e.target.value))}
+            className="flex-1 accent-action dark:accent-action-dark"
+          />
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 px-4 py-2.5 border border-border dark:border-border-dark rounded-full text-text-secondary dark:text-text-secondary-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors text-sm font-medium"
+          >
+            {t('common.cancel')}
+          </button>
+          <button
+            onClick={handleApply}
+            className="flex-1 px-4 py-2.5 bg-action dark:bg-action-dark text-white rounded-full text-sm font-bold hover:bg-action-hover dark:hover:bg-action-hover-dark transition-colors"
+          >
+            {t('editor.apply')}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

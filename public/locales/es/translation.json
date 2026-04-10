@@ -149,7 +149,11 @@
     "placeholderGithub": "Github",
     "placeholderLinkTitle": "Título del enlace (ej. Descargar CV)",
     "placeholderLinkUrl": "https://...",
-    "placeholderOrgName": "Nombre de la organización"
+    "placeholderOrgName": "Nombre de la organización",
+    "cropImage": "Ajustar imagen",
+    "cropDescription": "Arrastra para reposicionar, pellizca o usa el control para zoom",
+    "apply": "Aplicar",
+    "zoomLabel": "Zoom"
   },
   "card": {
     "publicCard": "Tarjeta Swiish",

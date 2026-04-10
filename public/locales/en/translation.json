@@ -149,7 +149,11 @@
     "placeholderGithub": "Github",
     "placeholderLinkTitle": "Link Title (e.g. Download CV)",
     "placeholderLinkUrl": "https://...",
-    "placeholderOrgName": "Organisation Name"
+    "placeholderOrgName": "Organisation Name",
+    "cropImage": "Adjust Image",
+    "cropDescription": "Drag to reposition, pinch or use slider to zoom",
+    "apply": "Apply",
+    "zoomLabel": "Zoom"
   },
   "card": {
     "publicCard": "Swiish Card",
