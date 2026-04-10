@@ -3466,15 +3466,17 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
   const handleFileSelect = (type, e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const imageUrl = URL.createObjectURL(file);
-    setCropState({ type, imageUrl, aspect: type === 'avatar' ? 1 : 3.2 });
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCropState({ type, imageUrl: reader.result, aspect: type === 'avatar' ? 1 : 3.2 });
+    };
+    reader.readAsDataURL(file);
     // Reset input so same file can be re-selected
     e.target.value = '';
   };
 
   const handleCropComplete = async (blob) => {
     const type = cropState.type;
-    URL.revokeObjectURL(cropState.imageUrl);
     setCropState(null);
 
     setIsUploading(true);
@@ -3506,7 +3508,7 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
   };
 
   const handleCropCancel = () => {
-    if (cropState) URL.revokeObjectURL(cropState.imageUrl);
+    // data URLs don't need revoking
     setCropState(null);
   };
 
