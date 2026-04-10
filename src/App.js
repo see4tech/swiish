@@ -1024,15 +1024,9 @@ const [settings, setSettings] = useState({
           setView('loading');
           checkAuth().then((authResult) => {
             if (authResult.isAuthenticated) {
-              if (authResult.userData?.isSuperAdmin === true) {
-                setView('super-admin');
-                document.title = t('superAdmin.title');
-                navigate('/superadmin');
-              } else {
-                // Demo mode: always show dashboard for demo user (owner role)
-                setView('admin-dashboard');
-                document.title = t("common.adminDashboard");
-              }
+              // Demo mode: always show dashboard for demo user (owner role)
+              setView('admin-dashboard');
+              document.title = t("common.adminDashboard");
             } else {
               // This shouldn't happen in demo mode, but fallback to login just in case
               navigate('/login');
@@ -1065,13 +1059,6 @@ const [settings, setSettings] = useState({
           setView('loading');
           checkAuth().then((authResult) => {
             if (authResult.isAuthenticated) {
-              // Super admins always land on their management view
-              if (authResult.userData?.isSuperAdmin === true) {
-                setView('super-admin');
-                document.title = t('superAdmin.title');
-                navigate('/superadmin');
-                return;
-              }
               // Determine view based on role and route
               if (authResult.userData.role === 'member') {
                 if (authResult.cardList.length === 0) {
@@ -1471,12 +1458,7 @@ const [settings, setSettings] = useState({
         await fetchCsrfToken();
         const authResult = await checkAuth();
         if (authResult.isAuthenticated) {
-          // Super admins go directly to their admin view
-          if (authResult.userData?.isSuperAdmin === true) {
-            navigate('/superadmin');
-          } else {
-            navigate('/people');
-          }
+          navigate('/people');
         }
       } else {
         const errorData = await res.json().catch(() => ({}));
@@ -1957,32 +1939,38 @@ const [settings, setSettings] = useState({
                    {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                  </button>
                  <button onClick={handleLogout} className="px-3 py-2 md:px-4 md:py-3 rounded-full font-medium text-text-muted dark:text-text-muted-dark bg-card dark:bg-card-dark border border-border dark:border-border-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors whitespace-nowrap text-sm md:text-base">{t('common.logout')}</button>
-                 {userRole === 'owner' && (
+                 {!isSuperAdmin && userRole === 'owner' && (
                    <button onClick={() => navigate('/settings')} className="px-3 py-2 md:px-4 md:py-3 rounded-full font-medium text-text-secondary dark:text-text-secondary-dark bg-card dark:bg-card-dark border border-border dark:border-border-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors whitespace-nowrap flex items-center gap-2 text-sm md:text-base">
                      <Settings className="w-4 h-4" /> <span className="hidden sm:inline">{t('dashboard.organisationNav')}</span><span className="sm:hidden">{t('dashboard.orgShort')}</span>
                    </button>
                  )}
-                 {userRole === 'owner' && (
+                 {!isSuperAdmin && userRole === 'owner' && (
                    <button onClick={() => navigate('/users')} className="px-3 py-2 md:px-4 md:py-3 rounded-full font-medium text-text-secondary dark:text-text-secondary-dark bg-card dark:bg-card-dark border border-border dark:border-border-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors whitespace-nowrap flex items-center gap-2 text-sm md:text-base">
                      <Users className="w-4 h-4" /> {t('dashboard.usersNav')}
                    </button>
                  )}
-                 {isPlatformAdmin && (
+                 {!isSuperAdmin && isPlatformAdmin && (
                    <button onClick={() => { setView('platform-admin'); document.title = t("common.platformAdmin"); navigate('/admin'); }} className="px-3 py-2 md:px-4 md:py-3 rounded-full font-medium text-text-secondary dark:text-text-secondary-dark bg-card dark:bg-card-dark border border-border dark:border-border-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors whitespace-nowrap flex items-center gap-2 text-sm md:text-base">
                      <Shield className="w-4 h-4" /> <span className="hidden sm:inline">{t('dashboard.platformAdminNav')}</span><span className="sm:hidden">{t('dashboard.adminNav')}</span>
                    </button>
                  )}
-                 {isSuperAdmin && (
-                   <button onClick={() => { setView('super-admin'); document.title = t('superAdmin.title'); navigate('/superadmin'); }} className="px-3 py-2 md:px-4 md:py-3 rounded-full font-medium text-white bg-purple-600 dark:bg-purple-700 border border-purple-700 dark:border-purple-600 hover:bg-purple-700 dark:hover:bg-purple-600 transition-colors whitespace-nowrap flex items-center gap-2 text-sm md:text-base">
-                     <ShieldAlert className="w-4 h-4" /> <span className="hidden sm:inline">{t('superAdmin.navLabel')}</span><span className="sm:hidden">{t('superAdmin.navLabel')}</span>
+                 {!isSuperAdmin && (
+                   <button onClick={handleCreateNew} className="bg-action dark:bg-action-dark text-white px-4 py-2 md:px-6 md:py-3 rounded-full font-bold flex items-center gap-2 hover:bg-action-hover dark:hover:bg-action-hover-dark transition-all whitespace-nowrap text-sm md:text-base">
+                     <Plus className="w-4 h-4 md:w-5 md:h-5" /> {t('dashboard.newPerson')}
                    </button>
                  )}
-                 <button onClick={handleCreateNew} className="bg-action dark:bg-action-dark text-white px-4 py-2 md:px-6 md:py-3 rounded-full font-bold flex items-center gap-2 hover:bg-action-hover dark:hover:bg-action-hover-dark transition-all whitespace-nowrap text-sm md:text-base">
-                   <Plus className="w-4 h-4 md:w-5 md:h-5" /> {t('dashboard.newPerson')}
-                 </button>
                </div>
             </div>
-            <div className="columns-1 md:columns-2 lg:columns-3 gap-6">
+            {isSuperAdmin ? (
+              <SuperAdminView
+                apiCall={apiCall}
+                csrfToken={csrfToken}
+                onBack={() => {}}
+                showAlert={showAlert}
+                showConfirm={showConfirm}
+              />
+            ) : null}
+            {!isSuperAdmin && <div className="columns-1 md:columns-2 lg:columns-3 gap-6">
               {groupCardsByUser(cardList).map(user => {
                 // Filter out entries without slugs (these represent users without cards)
                 const userCards = user.cards.filter(c => c.slug);
@@ -2126,7 +2114,7 @@ const [settings, setSettings] = useState({
                    {t('dashboard.noPeopleYet')}
                  </div>
               )}
-          </div>
+          </div>}
           </div>
           </div>
           <div className="fixed bottom-4 right-4 z-10 text-center group">
