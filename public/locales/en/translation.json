@@ -88,7 +88,13 @@
     "adminNav": "Admin",
     "noPeopleYet": "No people yet. Click \"New Person\" to start.",
     "adminDashboard": "Admin Dashboard",
-    "organisationSettings": "Organisation Settings"
+    "organisationSettings": "Organisation Settings",
+    "createCard": "Create Card",
+    "createFirstCard": "Create your first card to get started.",
+    "createNewCard": "Create New Card",
+    "enterUserUrl": "Enter a user URL for the new card (e.g., 'sarah'):",
+    "noCardYet": "You don't have a card yet",
+    "userUrlLabel": "User URL"
   },
   "editor": {
     "editingLabel": "Editing: {{slug}}",
@@ -121,7 +127,10 @@
     "uploadImage": "Upload Image",
     "removeImage": "Remove Image",
     "changeImage": "Change Image",
-    "dragToReorder": "Drag to reorder"
+    "dragToReorder": "Drag to reorder",
+    "locked": "Locked",
+    "lockedByOrganisation": "Locked by organisation",
+    "uploadingImage": "Uploading..."
   },
   "card": {
     "publicCard": "Swiish Card",
@@ -147,7 +156,16 @@
     "shareCard": "Share this card",
     "copied": "Copied!",
     "copyLink": "Copy Link",
-    "revealDetails": "Tap to reveal contact details"
+    "revealDetails": "Tap to reveal contact details",
+    "cardDeleted": "Card deleted",
+    "dropCallMe": "Call me",
+    "emailMeDetails": "Email me",
+    "fullDetails": "Full Details",
+    "hideSendOptions": "Hide send options",
+    "linkOnly": "Link Only",
+    "onlySharedNeverSold": "Information is only shared with those you choose. Never sold.",
+    "sendYourDetails": "Send your details",
+    "whatsappMe": "WhatsApp me"
   },
   "settings": {
     "organisationSettings": "Organisation Settings",
@@ -173,7 +191,21 @@
     "saveError": "Failed to save settings",
     "profileColors": "Profile Colors",
     "profileColorsOrg": "Color palette available to this organisation's cards",
-    "userCustomisationDescription": "Control what organisation users can customise on their cards"
+    "userCustomisationDescription": "Control what organisation users can customise on their cards",
+    "allowImageUploads": "Allow users to upload custom images",
+    "appThemes": "App Themes",
+    "appThemesDescription": "Choose the visual theme for your organisation",
+    "imageCustomisationDescription": "Control whether users can upload custom images",
+    "linksCustomisationDescription": "Control whether users can add custom links",
+    "organisationNameDescription": "The name shown across your organisation's cards",
+    "preview": "Preview",
+    "privacySettingsDescription": "Control whether users can modify privacy settings",
+    "profileColorsDescription": "Define the color palette available to cards in your organisation",
+    "themeCustomisationDescription": "Control whether users can choose custom theme colors",
+    "whenEnabledCustomLinks": "When enabled, users can add custom links to their cards. When disabled, the links section will be locked.",
+    "whenEnabledImageUploads": "When enabled, users can upload their own images. When disabled, image uploads will be blocked.",
+    "whenEnabledPrivacySettings": "When enabled, users can modify privacy options (require interaction, obfuscation, block robots). When disabled, privacy settings will be locked to organisation defaults.",
+    "whenEnabledThemeColors": "When enabled, users can choose theme colors from the palette. When disabled, the theme colors section will be locked."
   },
   "users": {
     "userManagement": "User Management",
@@ -202,7 +234,15 @@
     "retryEmail": "Retry sending email",
     "emailFailed": "Email failed",
     "invitedOn": "Invited on",
-    "expiresOn": "Expires on"
+    "expiresOn": "Expires on",
+    "cannotModifySelf": "Cannot modify yourself",
+    "changeRole": "Change Role",
+    "invitationCreatedEmailFailed": "Invitation created but email failed to send. You can retry from the invitations list below.",
+    "invitationEmailNote": "An invitation email will be sent to this address",
+    "role": "Role",
+    "roleUpdated": "Role updated",
+    "sent": "Sent!",
+    "userDeleted": "User deleted"
   },
   "platform": {
     "platformAdmin": "Platform Admin",
@@ -221,7 +261,9 @@
     "cardsCount": "{{count}} cards",
     "appliedToAllCards": "Applied to all cards in this organisation",
     "saveSettings": "Save Settings",
-    "created": "Created!"
+    "created": "Created!",
+    "manageAllOrganisations": "Manage all organisations on this platform",
+    "orgDeleted": "Organisation deleted"
   },
   "invitation": {
     "invitationAcceptance": "Invitation Acceptance",
@@ -232,7 +274,9 @@
     "acceptingInvitation": "Accepting...",
     "invalidToken": "Invalid invitation token",
     "joinOrganisation": "Join {{orgName}}",
-    "youveBeenInvited": "You've been invited to join {{orgName}}"
+    "youveBeenInvited": "You've been invited to join {{orgName}}",
+    "creatingAccount": "Creating Account...",
+    "invitationInvalid": "Invalid Invitation"
   },
   "errors": {
     "invalidUserUrl": "Invalid User URL",
@@ -315,7 +359,31 @@
     "saveSettingsFailed": "Failed to save settings",
     "saveSettingsError": "Error saving settings",
     "loadSettingsFailed": "Failed to load settings",
-    "loadSettingsError": "Error loading settings"
+    "loadSettingsError": "Error loading settings",
+    "createOrgError": "Error creating organisation",
+    "createOrgFailed": "Failed to create organisation",
+    "deleteCardFailed": "Failed to delete card",
+    "deleteInvitationError": "Error deleting invitation",
+    "deleteOrgError": "Error deleting organisation",
+    "deleteOrgFailed": "Failed to delete organisation",
+    "deleteUserError": "Error deleting user",
+    "deleteUserFailed": "Failed to delete user",
+    "emailPasswordRequired": "Email and password are required",
+    "invalidCredentials": "Invalid email or password",
+    "invalidUserUrlTitle": "Invalid User URL",
+    "invitationSendFailed": "Failed to send invitation",
+    "loadOrgsError": "Error loading organisations",
+    "loadOrgsFailed": "Failed to load organisations",
+    "loadUsersError": "Error loading users",
+    "loadUsersFailed": "Failed to load users",
+    "loginFailed": "Login failed",
+    "retryInvitationError": "Error retrying invitation email",
+    "sendInvitationError": "Error sending invitation",
+    "sendInvitationFailed": "Failed to send invitation",
+    "updateRoleError": "Error updating role",
+    "updateRoleFailed": "Failed to update role",
+    "userUrlExistsTitle": "User URL Already Exists",
+    "userUrlTooShort": "User URL must be at least 1 character long"
   },
   "validation": {
     "organisationNameRequired": "Organisation name is required and must be less than 200 characters",
@@ -396,7 +464,8 @@
     "addLink": "Add Link",
     "linkUrl": "URL",
     "linkPlaceholder": "https://example.com",
-    "noLinksYet": "No custom links yet."
+    "noLinksYet": "No custom links yet.",
+    "customLinks": "Custom Links"
   },
   "privacy": {
     "requireInteraction": "Require Interaction",
@@ -419,7 +488,17 @@
     "deleteCardTitle": "Delete Card",
     "deleteCardButton": "Delete",
     "deleteOrganisationConfirm": "Are you sure you want to delete organisation \"{{orgName}}\"? This will delete all users, cards, and data for this organisation. This action cannot be undone.",
-    "deleteOrganisationTitle": "Delete Organisation"
+    "deleteOrganisationTitle": "Delete Organisation",
+    "deleteCard": "Delete Card",
+    "deleteColor": "Delete Color",
+    "deleteColorConfirm": "Are you sure you want to delete the color \"{{name}}\"?",
+    "deleteInvitation": "Delete Invitation",
+    "deleteInvitationConfirm": "Are you sure you want to delete this invitation?",
+    "deleteOrganisation": "Delete Organisation",
+    "deleteUser": "Delete User",
+    "emailInUseConfirm": "Another card already uses this email address ({{email}}). Would you like to save anyway?",
+    "emailInUseTitle": "Email Already in Use",
+    "saveAnyway": "Save Anyway"
   },
   "emptyStates": {
     "noCardYet": "You don't have a card yet",
@@ -427,7 +506,11 @@
     "disabledCustomLinks": "Your organisation has disabled custom links. Contact your administrator to enable this feature.",
     "disabledImageUploads": "Your organisation has disabled custom image uploads. Contact your administrator to enable this feature.",
     "disabledPrivacySettings": "Your organisation has disabled privacy settings customisation. Privacy settings are controlled by your organisation.",
-    "disabledThemeColors": "Your organisation has disabled theme colour customisation. Your card will use the default theme colour."
+    "disabledThemeColors": "Your organisation has disabled theme colour customisation. Your card will use the default theme colour.",
+    "disabledImages": "Your organisation has disabled custom image uploads. Contact your administrator to enable this feature.",
+    "disabledLinks": "Your organisation has disabled custom links. Contact your administrator to enable this feature.",
+    "disabledPrivacy": "Your organisation has disabled privacy settings customisation. Privacy settings are controlled by your organisation.",
+    "disabledTheme": "Your organisation has disabled theme colour customisation. Your card will use the default theme colour."
   },
   "colors": {
     "indigo": "Indigo",
@@ -455,7 +538,8 @@
     "removeColor": "Remove color",
     "addColor": "Add Color",
     "editingColor": "Editing: {{colorName}}",
-    "noColorsDefined": "No colors defined. Add a color to get started."
+    "noColorsDefined": "No colors defined. Add a color to get started.",
+    "mustHaveAtLeastOne": "You must have at least one color"
   },
   "social": {
     "linkedin": "LinkedIn",
@@ -469,7 +553,8 @@
     "youAreOnLatest": "You are on the latest release",
     "updateAvailable": "Update available on GitHub",
     "viewOnGithub": "View on GitHub",
-    "unreleasedVersion": "You are on an unreleased development version - things may break"
+    "unreleasedVersion": "You are on an unreleased development version - things may break",
+    "unreleasedDev": "You are on an unreleased development version - things may break"
   },
   "demoMode": {
     "demoMode": "Demo Mode",

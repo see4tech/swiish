@@ -88,7 +88,13 @@
     "adminNav": "Admin",
     "noPeopleYet": "Aún no hay personas. Haz clic en \"Nueva persona\" para comenzar.",
     "adminDashboard": "Panel de administración",
-    "organisationSettings": "Configuración de la organización"
+    "organisationSettings": "Configuración de la organización",
+    "createCard": "Crear tarjeta",
+    "createFirstCard": "Crea tu primera tarjeta para comenzar.",
+    "createNewCard": "Crear nueva tarjeta",
+    "enterUserUrl": "Ingresa una URL de usuario para la nueva tarjeta (ej., 'sara'):",
+    "noCardYet": "Aún no tienes una tarjeta",
+    "userUrlLabel": "URL del usuario"
   },
   "editor": {
     "editingLabel": "Editando: {{slug}}",
@@ -121,7 +127,10 @@
     "uploadImage": "Subir imagen",
     "removeImage": "Eliminar imagen",
     "changeImage": "Cambiar imagen",
-    "dragToReorder": "Arrastra para reordenar"
+    "dragToReorder": "Arrastra para reordenar",
+    "locked": "Bloqueado",
+    "lockedByOrganisation": "Bloqueado por la organización",
+    "uploadingImage": "Subiendo..."
   },
   "card": {
     "publicCard": "Tarjeta Swiish",
@@ -147,7 +156,16 @@
     "shareCard": "Compartir esta tarjeta",
     "copied": "¡Copiado!",
     "copyLink": "Copiar enlace",
-    "revealDetails": "Toca para revelar los datos de contacto"
+    "revealDetails": "Toca para revelar los datos de contacto",
+    "cardDeleted": "Tarjeta eliminada",
+    "dropCallMe": "Llámame",
+    "emailMeDetails": "Envíame un correo",
+    "fullDetails": "Detalles completos",
+    "hideSendOptions": "Ocultar opciones",
+    "linkOnly": "Solo enlace",
+    "onlySharedNeverSold": "La información solo se comparte con quienes tú elijas. Nunca se vende.",
+    "sendYourDetails": "Enviar mis datos",
+    "whatsappMe": "WhatsApp"
   },
   "settings": {
     "organisationSettings": "Configuración de la organización",
@@ -173,7 +191,21 @@
     "saveError": "Error al guardar la configuración",
     "profileColors": "Colores de perfil",
     "profileColorsOrg": "Paleta de colores disponible para las tarjetas de esta organización",
-    "userCustomisationDescription": "Controla lo que los usuarios de la organización pueden personalizar en sus tarjetas"
+    "userCustomisationDescription": "Controla lo que los usuarios de la organización pueden personalizar en sus tarjetas",
+    "allowImageUploads": "Permitir a los usuarios subir imágenes personalizadas",
+    "appThemes": "Temas de la app",
+    "appThemesDescription": "Elige el tema visual para tu organización",
+    "imageCustomisationDescription": "Controla si los usuarios pueden subir imágenes personalizadas",
+    "linksCustomisationDescription": "Controla si los usuarios pueden añadir enlaces personalizados",
+    "organisationNameDescription": "El nombre mostrado en las tarjetas de tu organización",
+    "preview": "Vista previa",
+    "privacySettingsDescription": "Controla si los usuarios pueden modificar la configuración de privacidad",
+    "profileColorsDescription": "Define la paleta de colores disponible para las tarjetas de tu organización",
+    "themeCustomisationDescription": "Controla si los usuarios pueden elegir colores de tema personalizados",
+    "whenEnabledCustomLinks": "Cuando está activado, los usuarios pueden añadir enlaces personalizados a sus tarjetas. Cuando está desactivado, la sección de enlaces estará bloqueada.",
+    "whenEnabledImageUploads": "Cuando está activado, los usuarios pueden subir sus propias imágenes. Cuando está desactivado, la subida de imágenes estará bloqueada.",
+    "whenEnabledPrivacySettings": "Cuando está activado, los usuarios pueden modificar las opciones de privacidad. Cuando está desactivado, la configuración de privacidad estará bloqueada a los valores predeterminados.",
+    "whenEnabledThemeColors": "Cuando está activado, los usuarios pueden elegir colores del tema de la paleta. Cuando está desactivado, la sección de colores del tema estará bloqueada."
   },
   "users": {
     "userManagement": "Gestión de usuarios",
@@ -202,7 +234,15 @@
     "retryEmail": "Reintentar envío de correo",
     "emailFailed": "Envío de correo fallido",
     "invitedOn": "Invitado el",
-    "expiresOn": "Expira el"
+    "expiresOn": "Expira el",
+    "cannotModifySelf": "No puedes modificarte a ti mismo",
+    "changeRole": "Cambiar rol",
+    "invitationCreatedEmailFailed": "Invitación creada pero el correo no se pudo enviar. Puedes reintentar desde la lista de invitaciones.",
+    "invitationEmailNote": "Se enviará un correo de invitación a esta dirección",
+    "role": "Rol",
+    "roleUpdated": "Rol actualizado",
+    "sent": "¡Enviado!",
+    "userDeleted": "Usuario eliminado"
   },
   "platform": {
     "platformAdmin": "Administración de plataforma",
@@ -221,7 +261,9 @@
     "cardsCount": "{{count}} tarjetas",
     "appliedToAllCards": "Aplicado a todas las tarjetas de esta organización",
     "saveSettings": "Guardar configuración",
-    "created": "¡Creado!"
+    "created": "¡Creado!",
+    "manageAllOrganisations": "Gestiona todas las organizaciones de esta plataforma",
+    "orgDeleted": "Organización eliminada"
   },
   "invitation": {
     "invitationAcceptance": "Aceptación de invitación",
@@ -232,7 +274,9 @@
     "acceptingInvitation": "Aceptando...",
     "invalidToken": "Token de invitación inválido",
     "joinOrganisation": "Unirse a {{orgName}}",
-    "youveBeenInvited": "Has sido invitado a unirte a {{orgName}}"
+    "youveBeenInvited": "Has sido invitado a unirte a {{orgName}}",
+    "creatingAccount": "Creando cuenta...",
+    "invitationInvalid": "Invitación inválida"
   },
   "errors": {
     "invalidUserUrl": "URL de usuario inválida",
@@ -315,7 +359,31 @@
     "saveSettingsFailed": "Error al guardar la configuración",
     "saveSettingsError": "Error al guardar la configuración",
     "loadSettingsFailed": "Error al cargar la configuración",
-    "loadSettingsError": "Error al cargar la configuración"
+    "loadSettingsError": "Error al cargar la configuración",
+    "createOrgError": "Error al crear la organización",
+    "createOrgFailed": "Error al crear la organización",
+    "deleteCardFailed": "Error al eliminar la tarjeta",
+    "deleteInvitationError": "Error al eliminar la invitación",
+    "deleteOrgError": "Error al eliminar la organización",
+    "deleteOrgFailed": "Error al eliminar la organización",
+    "deleteUserError": "Error al eliminar el usuario",
+    "deleteUserFailed": "Error al eliminar el usuario",
+    "emailPasswordRequired": "El correo electrónico y la contraseña son obligatorios",
+    "invalidCredentials": "Correo electrónico o contraseña inválidos",
+    "invalidUserUrlTitle": "URL de usuario inválida",
+    "invitationSendFailed": "Error al enviar la invitación",
+    "loadOrgsError": "Error al cargar las organizaciones",
+    "loadOrgsFailed": "Error al cargar las organizaciones",
+    "loadUsersError": "Error al cargar los usuarios",
+    "loadUsersFailed": "Error al cargar los usuarios",
+    "loginFailed": "Error al iniciar sesión",
+    "retryInvitationError": "Error al reintentar el correo de invitación",
+    "sendInvitationError": "Error al enviar la invitación",
+    "sendInvitationFailed": "Error al enviar la invitación",
+    "updateRoleError": "Error al actualizar el rol",
+    "updateRoleFailed": "Error al actualizar el rol",
+    "userUrlExistsTitle": "URL de usuario ya existe",
+    "userUrlTooShort": "La URL del usuario debe tener al menos 1 carácter"
   },
   "validation": {
     "organisationNameRequired": "El nombre de la organización es obligatorio y debe tener menos de 200 caracteres",
@@ -396,7 +464,8 @@
     "addLink": "Añadir enlace",
     "linkUrl": "URL",
     "linkPlaceholder": "https://ejemplo.com",
-    "noLinksYet": "Aún no hay enlaces personalizados."
+    "noLinksYet": "Aún no hay enlaces personalizados.",
+    "customLinks": "Enlaces personalizados"
   },
   "privacy": {
     "requireInteraction": "Requerir interacción",
@@ -419,7 +488,17 @@
     "deleteCardTitle": "Eliminar tarjeta",
     "deleteCardButton": "Eliminar",
     "deleteOrganisationConfirm": "¿Estás seguro de que quieres eliminar la organización \"{{orgName}}\"? Esto eliminará todos los usuarios, tarjetas y datos de esta organización. Esta acción no se puede deshacer.",
-    "deleteOrganisationTitle": "Eliminar organización"
+    "deleteOrganisationTitle": "Eliminar organización",
+    "deleteCard": "Eliminar tarjeta",
+    "deleteColor": "Eliminar color",
+    "deleteColorConfirm": "¿Estás seguro de que quieres eliminar el color \"{{name}}\"?",
+    "deleteInvitation": "Eliminar invitación",
+    "deleteInvitationConfirm": "¿Estás seguro de que quieres eliminar esta invitación?",
+    "deleteOrganisation": "Eliminar organización",
+    "deleteUser": "Eliminar usuario",
+    "emailInUseConfirm": "Otra tarjeta ya usa esta dirección de correo ({{email}}). ¿Deseas guardar de todos modos?",
+    "emailInUseTitle": "Correo electrónico ya en uso",
+    "saveAnyway": "Guardar de todos modos"
   },
   "emptyStates": {
     "noCardYet": "Aún no tienes una tarjeta",
@@ -427,7 +506,11 @@
     "disabledCustomLinks": "Tu organización ha desactivado los enlaces personalizados. Contacta a tu administrador para activar esta función.",
     "disabledImageUploads": "Tu organización ha desactivado la subida de imágenes personalizadas. Contacta a tu administrador para activar esta función.",
     "disabledPrivacySettings": "Tu organización ha desactivado la personalización de configuración de privacidad. La configuración de privacidad es controlada por tu organización.",
-    "disabledThemeColors": "Tu organización ha desactivado la personalización de colores del tema. Tu tarjeta usará el color de tema predeterminado."
+    "disabledThemeColors": "Tu organización ha desactivado la personalización de colores del tema. Tu tarjeta usará el color de tema predeterminado.",
+    "disabledImages": "Tu organización ha desactivado la subida de imágenes personalizadas. Contacta a tu administrador para activar esta función.",
+    "disabledLinks": "Tu organización ha desactivado los enlaces personalizados. Contacta a tu administrador para activar esta función.",
+    "disabledPrivacy": "Tu organización ha desactivado la personalización de privacidad. La configuración de privacidad es controlada por tu organización.",
+    "disabledTheme": "Tu organización ha desactivado la personalización de colores del tema. Tu tarjeta usará el color de tema predeterminado."
   },
   "colors": {
     "indigo": "Índigo",
@@ -455,7 +538,8 @@
     "removeColor": "Eliminar color",
     "addColor": "Añadir color",
     "editingColor": "Editando: {{colorName}}",
-    "noColorsDefined": "Sin colores definidos. Añade un color para comenzar."
+    "noColorsDefined": "Sin colores definidos. Añade un color para comenzar.",
+    "mustHaveAtLeastOne": "Debes tener al menos un color"
   },
   "social": {
     "linkedin": "LinkedIn",
@@ -469,7 +553,8 @@
     "youAreOnLatest": "Estás en la última versión",
     "updateAvailable": "Actualización disponible en GitHub",
     "viewOnGithub": "Ver en GitHub",
-    "unreleasedVersion": "Estás en una versión de desarrollo no publicada - las cosas pueden fallar"
+    "unreleasedVersion": "Estás en una versión de desarrollo no publicada - las cosas pueden fallar",
+    "unreleasedDev": "Estás en una versión de desarrollo no publicada - las cosas pueden fallar"
   },
   "demoMode": {
     "demoMode": "Modo demo",
