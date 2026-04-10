@@ -3749,6 +3749,104 @@ app.delete('/api/superadmin/users/:userId', requireAuth, requireSuperAdmin, apiL
   }
 });
 
+// POST /api/superadmin/users — create a user in any org
+app.post('/api/superadmin/users', requireAuth, requireSuperAdmin, apiLimiter, csrfProtection, [
+  body('email').isEmail({ allow_display_name: false, require_tld: false }).withMessage('Valid email required'),
+  body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
+  body('role').isIn(['owner', 'member']).withMessage('Role must be owner or member'),
+  body('organisation_id').isUUID().withMessage('Organisation is required')
+], handleValidationErrors, async (req, res, next) => {
+  const { email, password, role, organisation_id } = req.body;
+  try {
+    const org = await new Promise((resolve, reject) => {
+      db.get('SELECT id FROM organisations WHERE id = ?', [organisation_id], (err, row) => {
+        if (err) reject(err); else resolve(row);
+      });
+    });
+    if (!org) return res.status(400).json({ error: 'errors.organisationNotFound' });
+
+    const existingUser = await new Promise((resolve, reject) => {
+      db.get('SELECT id FROM users WHERE email = ?', [email.toLowerCase()], (err, row) => {
+        if (err) reject(err); else resolve(row);
+      });
+    });
+    if (existingUser) return res.status(400).json({ error: 'errors.userAlreadyExists' });
+
+    const userId = require('crypto').randomUUID();
+    const passwordHash = await new Promise((resolve, reject) => {
+      bcrypt.hash(password, 10, (err, hash) => { if (err) reject(err); else resolve(hash); });
+    });
+    await new Promise((resolve, reject) => {
+      db.run(
+        'INSERT INTO users (id, email, password_hash, organisation_id, role, email_verified) VALUES (?, ?, ?, ?, ?, ?)',
+        [userId, email.toLowerCase(), passwordHash, organisation_id, role, 0],
+        (err) => { if (err) reject(err); else resolve(); }
+      );
+    });
+    res.json({ success: true, userId, email: email.toLowerCase(), role });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/superadmin/invitations — invite a user to any org
+app.post('/api/superadmin/invitations', requireAuth, requireSuperAdmin, apiLimiter, csrfProtection, [
+  body('email').isEmail().withMessage('Valid email required'),
+  body('role').isIn(['owner', 'member']).withMessage('Role must be owner or member'),
+  body('organisation_id').isUUID().withMessage('Organisation is required')
+], handleValidationErrors, async (req, res, next) => {
+  const { email, role, organisation_id } = req.body;
+  const emailLower = email.toLowerCase();
+  try {
+    const org = await new Promise((resolve, reject) => {
+      db.get('SELECT id, name FROM organisations WHERE id = ?', [organisation_id], (err, row) => {
+        if (err) reject(err); else resolve(row);
+      });
+    });
+    if (!org) return res.status(400).json({ error: 'errors.organisationNotFound' });
+
+    const existingUser = await new Promise((resolve, reject) => {
+      db.get('SELECT id FROM users WHERE email = ?', [emailLower], (err, row) => {
+        if (err) reject(err); else resolve(row);
+      });
+    });
+    if (existingUser) return res.status(400).json({ error: 'errors.userAlreadyExists' });
+
+    const existingInvitation = await new Promise((resolve, reject) => {
+      db.get(
+        "SELECT id, status FROM invitations WHERE email = ? AND organisation_id = ? AND status IN ('pending', 'sent') AND expires_at > datetime('now')",
+        [emailLower, organisation_id],
+        (err, row) => { if (err) reject(err); else resolve(row); }
+      );
+    });
+    if (existingInvitation) return res.status(400).json({ error: 'errors.activeInvitationAlreadyExists', status: existingInvitation.status });
+
+    const token = require('crypto').randomBytes(32).toString('hex');
+    const invitationId = require('crypto').randomUUID();
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
+    await new Promise((resolve, reject) => {
+      db.run(
+        "INSERT INTO invitations (id, organisation_id, email, token, role, invited_by, expires_at, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')",
+        [invitationId, organisation_id, emailLower, token, role, req.user.id, expiresAt.toISOString()],
+        (err) => { if (err) reject(err); else resolve(); }
+      );
+    });
+
+    const inviteUrl = `${req.protocol}://${req.get('host')}/invite/${token}`;
+    await new Promise((resolve, reject) => {
+      db.run("UPDATE invitations SET status = 'sent', sent_at = datetime('now') WHERE id = ?", [invitationId], (err) => {
+        if (err) reject(err); else resolve();
+      });
+    });
+
+    res.json({ success: true, invitationId, inviteUrl });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Error handling middleware (must be last)
 app.use(errorHandler);
 

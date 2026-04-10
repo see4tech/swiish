@@ -675,8 +675,9 @@ export default function App() {
   const [actionSelectionModal, setActionSelectionModal] = useState({ isOpen: false });
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showCreateUserModal, setShowCreateUserModal] = useState(false);
-  const [newUser, setNewUser] = useState({ email: '', password: '', role: 'member' });
-  const [newInvitation, setNewInvitation] = useState({ email: '', role: 'member' });
+  const [newUser, setNewUser] = useState({ email: '', password: '', role: 'member', organisation_id: '' });
+  const [newInvitation, setNewInvitation] = useState({ email: '', role: 'member', organisation_id: '' });
+  const [superAdminOrgs, setSuperAdminOrgs] = useState([]);
   const [isSavingUser, setIsSavingUser] = useState(false);
   const [editingUserId, setEditingUserId] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
@@ -1521,8 +1522,15 @@ const [settings, setSettings] = useState({
     }
   };
 
-  const handleCreateNew = () => {
-    if (userRole === 'owner') {
+  const handleCreateNew = async () => {
+    if (isSuperAdmin) {
+      // Fetch orgs for super admin modals if not already loaded
+      if (superAdminOrgs.length === 0) {
+        const res = await apiCall(`${API_ENDPOINT}/superadmin/organisations`);
+        if (res.ok) setSuperAdminOrgs(await res.json());
+      }
+      setActionSelectionModal({ isOpen: true });
+    } else if (userRole === 'owner') {
       // Show action selection modal for owners
       setActionSelectionModal({ isOpen: true });
     } else {
@@ -1575,9 +1583,15 @@ const [settings, setSettings] = useState({
       return;
     }
 
+    if (isSuperAdmin && !newUser.organisation_id) {
+      if (showAlert) showAlert(t('errors.organisationRequired'), 'error');
+      return;
+    }
+
     setIsSavingUser(true);
     try {
-      const res = await apiCall(`${API_ENDPOINT}/admin/users`, {
+      const endpoint = isSuperAdmin ? `${API_ENDPOINT}/superadmin/users` : `${API_ENDPOINT}/admin/users`;
+      const res = await apiCall(endpoint, {
         method: 'POST',
         body: JSON.stringify(newUser)
       });
@@ -1586,7 +1600,7 @@ const [settings, setSettings] = useState({
         setIsSuccessCreateUser(true);
         setTimeout(() => setIsSuccessCreateUser(false), 2000);
         setShowCreateUserModal(false);
-        setNewUser({ email: '', password: '', role: 'member' });
+        setNewUser({ email: '', password: '', role: 'member', organisation_id: '' });
         checkAuth(); // Refresh card list
       } else {
         // Try to parse error response
@@ -1625,9 +1639,15 @@ const [settings, setSettings] = useState({
       return;
     }
 
+    if (isSuperAdmin && !newInvitation.organisation_id) {
+      if (showAlert) showAlert(t('errors.organisationRequired'), 'error');
+      return;
+    }
+
     setIsSavingUser(true);
     try {
-      const res = await apiCall(`${API_ENDPOINT}/admin/invitations`, {
+      const endpoint = isSuperAdmin ? `${API_ENDPOINT}/superadmin/invitations` : `${API_ENDPOINT}/admin/invitations`;
+      const res = await apiCall(endpoint, {
         method: 'POST',
         body: JSON.stringify(newInvitation)
       });
@@ -1635,7 +1655,7 @@ const [settings, setSettings] = useState({
         setIsSuccessInvite(true);
         setTimeout(() => setIsSuccessInvite(false), 2000);
         setShowInviteModal(false);
-        setNewInvitation({ email: '', role: 'member' });
+        setNewInvitation({ email: '', role: 'member', organisation_id: '' });
       } else {
         const errorData = await res.json().catch(() => ({}));
         if (showAlert) showAlert(errorData.error || t('errors.sendInvitationFailed'), 'error');
@@ -2172,6 +2192,21 @@ const [settings, setSettings] = useState({
                     />
                     <p className="text-xs text-text-muted dark:text-text-muted-dark mt-1">{t('users.invitationEmailNote')}</p>
                   </div>
+                  {isSuperAdmin && (
+                    <div>
+                      <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">{t('superAdmin.orgColumn')}</label>
+                      <select
+                        value={newInvitation.organisation_id}
+                        onChange={(e) => setNewInvitation({ ...newInvitation, organisation_id: e.target.value })}
+                        className="w-full px-4 py-2.5 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark focus:border-action dark:focus:border-action-dark"
+                      >
+                        <option value="">{t('superAdmin.allOrganisations')}</option>
+                        {superAdminOrgs.map(org => (
+                          <option key={org.id} value={org.id}>{org.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div>
                     <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">{t('users.role')}</label>
                     <select
@@ -2242,12 +2277,27 @@ const [settings, setSettings] = useState({
                       <option value="owner">{t('common.owner')}</option>
                     </select>
                   </div>
+                  {isSuperAdmin && (
+                    <div>
+                      <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">{t('superAdmin.orgColumn')}</label>
+                      <select
+                        value={newUser.organisation_id}
+                        onChange={(e) => setNewUser({ ...newUser, organisation_id: e.target.value })}
+                        className="w-full px-4 py-2.5 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark focus:border-action dark:focus:border-action-dark"
+                      >
+                        <option value="">{t('superAdmin.allOrganisations')}</option>
+                        {superAdminOrgs.map(org => (
+                          <option key={org.id} value={org.id}>{org.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-3 mt-6">
                   <button
                     onClick={() => {
                       setShowCreateUserModal(false);
-                      setNewUser({ email: '', password: '', role: 'member' });
+                      setNewUser({ email: '', password: '', role: 'member', organisation_id: '' });
                     }}
                     className="flex-1 px-4 py-2.5 bg-surface dark:bg-surface-dark text-text-primary dark:text-text-secondary-dark rounded-button font-medium hover:bg-surface dark:hover:bg-surface-dark"
                   >

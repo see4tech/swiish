@@ -459,6 +459,7 @@
     "verificationTokenExpired": "El token de verificación ha expirado",
     "cannotDeleteOwnOrganisation": "No puedes eliminar tu propia organización",
     "organisationNotFound": "Organización no encontrada",
+    "organisationRequired": "Por favor selecciona una organización",
     "cannotDeleteOrgWithPlatformAdmin": "No se puede eliminar una organización que contiene un administrador de plataforma",
     "notFound": "No encontrado",
     "activeInvitationAlreadyExists": "Ya existe una invitación activa para este correo",
