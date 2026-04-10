@@ -39,7 +39,16 @@
     "default": "Default",
     "custom": "Custom",
     "auto": "Auto",
-    "language": "Language"
+    "language": "Language",
+    "initialSetup": "Initial Setup",
+    "adminLogin": "Admin Login",
+    "adminDashboard": "Admin Dashboard",
+    "platformAdmin": "Platform Admin",
+    "swiishCard": "Swiish Card",
+    "cardNotFoundTitle": "Card Not Found",
+    "errorLoadingCard": "Error Loading Card",
+    "switchToEnglish": "Switch to English",
+    "switchToSpanish": "Cambiar a Español"
   },
   "auth": {
     "loginHeading": "Login",
@@ -130,7 +139,17 @@
     "dragToReorder": "Drag to reorder",
     "locked": "Locked",
     "lockedByOrganisation": "Locked by organisation",
-    "uploadingImage": "Uploading..."
+    "uploadingImage": "Uploading...",
+    "placeholderEmail": "Email",
+    "placeholderPhone": "Phone",
+    "placeholderWebsite": "Website",
+    "placeholderLinkedIn": "LinkedIn",
+    "placeholderTwitter": "Twitter / X",
+    "placeholderInstagram": "Instagram",
+    "placeholderGithub": "Github",
+    "placeholderLinkTitle": "Link Title (e.g. Download CV)",
+    "placeholderLinkUrl": "https://...",
+    "placeholderOrgName": "Organisation Name"
   },
   "card": {
     "publicCard": "Swiish Card",
@@ -165,7 +184,32 @@
     "linkOnly": "Link Only",
     "onlySharedNeverSold": "Information is only shared with those you choose. Never sold.",
     "sendYourDetails": "Send your details",
-    "whatsappMe": "WhatsApp me"
+    "whatsappMe": "WhatsApp me",
+    "qrSavedDetails": "Saved details",
+    "qrOfflineMode": "Offline mode",
+    "qrSavedDetailsDesc": "This code includes your saved Swiish details and a link to your card when scanned with an online device.",
+    "qrLinkOnlyOffline": "Link-only QR is available when you're online.",
+    "qrSwitchToFull": "Switch to \"Full details\" to use your saved offline code.",
+    "qrLoading": "Loading your QR code...",
+    "qrConnectOnce": "Connect once to generate and save your QR code for offline use.",
+    "qrOfflineNote": "Using last saved QR details (offline). The code includes your contact info and a link to your Swiish card.",
+    "qrErrorSimple": "Unable to load link-only QR right now. Please try again in a moment.",
+    "qrErrorRich": "Unable to load full-details QR right now. Your last saved details are still available offline.",
+    "whatsappTemplate": "Hi, we met via your Swiish card. My name is ... and my number/email is ...",
+    "emailSubjectTemplate": "My details from Swiish",
+    "emailBodyTemplate": "Hi, we met via your Swiish card.\\nMy name is ...\\nMy phone number is ...\\nMy email address is ...",
+    "installFailed": "Install Failed",
+    "installFailedMsg": "Install prompt failed. Please use your browser menu to install: Chrome/Edge (three dots menu > Install app), Firefox (menu > Install), or Safari (Share > Add to Home Screen).",
+    "alreadyInstalled": "Already Installed",
+    "alreadyInstalledMsg": "This app is already installed on your device.",
+    "installSwiish": "Install Swiish",
+    "installInstructions": "To install this app:\n\n",
+    "installChrome": "Chrome/Edge: Click the three dots menu (⋮) in the address bar, then select \"Install app\" or \"Add to Home Screen\".",
+    "installFirefox": "Firefox: Click the menu button, then select \"Install\" or \"Add to Home Screen\".",
+    "installSafari": "Safari (iOS): Tap the Share button, then \"Add to Home Screen\".",
+    "installGeneric": "Open your browser menu and look for \"Install app\" or \"Add to Home Screen\" option.",
+    "installNote": "\n\nNote: The install button may not be available if the app doesn't meet PWA requirements (service worker, valid manifest, etc.).",
+    "cardNotFoundMsg": "Card not found"
   },
   "settings": {
     "organisationSettings": "Organisation Settings",
@@ -205,7 +249,11 @@
     "whenEnabledCustomLinks": "When enabled, users can add custom links to their cards. When disabled, the links section will be locked.",
     "whenEnabledImageUploads": "When enabled, users can upload their own images. When disabled, image uploads will be blocked.",
     "whenEnabledPrivacySettings": "When enabled, users can modify privacy options (require interaction, obfuscation, block robots). When disabled, privacy settings will be locked to organisation defaults.",
-    "whenEnabledThemeColors": "When enabled, users can choose theme colors from the palette. When disabled, the theme colors section will be locked."
+    "whenEnabledThemeColors": "When enabled, users can choose theme colors from the palette. When disabled, the theme colors section will be locked.",
+    "themeSwiishTitle": "Swiish",
+    "themeSwiishDesc": "Original Swiish theme with colors and textures.",
+    "themeMinimalTitle": "Minimal",
+    "themeMinimalDesc": "Black/white, few grays, no textures, border-only accents."
   },
   "users": {
     "userManagement": "User Management",
@@ -261,9 +309,25 @@
     "cardsCount": "{{count}} cards",
     "appliedToAllCards": "Applied to all cards in this organisation",
     "saveSettings": "Save Settings",
-    "created": "Created!",
+    "created": "Created",
     "manageAllOrganisations": "Manage all organisations on this platform",
-    "orgDeleted": "Organisation deleted"
+    "orgDeleted": "Organisation deleted",
+    "themeCustomisation": "Theme Customisation",
+    "themeCustomisationDesc": "Allow users to choose theme colors from the palette",
+    "imageCustomisation": "Image Customisation",
+    "imageCustomisationDesc": "Allow users to upload custom avatars and banners",
+    "linksCustomisation": "Links Customisation",
+    "linksCustomisationDesc": "Allow users to add custom links to their cards",
+    "privacySettings": "Privacy Settings",
+    "privacySettingsDesc": "Allow users to change privacy settings on their cards",
+    "colorName": "Color name",
+    "base": "Base",
+    "secondary": "Secondary",
+    "removeColor": "Remove color",
+    "orgSettingsTitle": "Organisation settings",
+    "deleteOrg": "Delete organisation",
+    "user": "user",
+    "users": "users"
   },
   "invitation": {
     "invitationAcceptance": "Invitation Acceptance",
@@ -276,7 +340,15 @@
     "joinOrganisation": "Join {{orgName}}",
     "youveBeenInvited": "You've been invited to join {{orgName}}",
     "creatingAccount": "Creating Account...",
-    "invitationInvalid": "Invalid Invitation"
+    "invitationInvalid": "Invalid Invitation",
+    "welcomeCreated": "Welcome! Your account has been created.",
+    "notFoundOrExpired": "Invitation not found or has expired",
+    "errorLoading": "Error loading invitation",
+    "passwordRequired": "Password is required",
+    "passwordMin8": "Password must be at least 8 characters",
+    "passwordsDoNotMatch": "Passwords do not match",
+    "failedAccept": "Failed to accept invitation",
+    "errorAccepting": "Error accepting invitation"
   },
   "errors": {
     "invalidUserUrl": "Invalid User URL",
@@ -465,7 +537,10 @@
     "linkUrl": "URL",
     "linkPlaceholder": "https://example.com",
     "noLinksYet": "No custom links yet.",
-    "customLinks": "Custom Links"
+    "customLinks": "Custom Links",
+    "dragToReorderAria": "Drag to reorder",
+    "moveLinkUpAria": "Move link up",
+    "moveLinkDownAria": "Move link down"
   },
   "privacy": {
     "requireInteraction": "Require Interaction",
@@ -473,7 +548,10 @@
     "clientSideObfuscation": "Client-Side Obfuscation",
     "clientSideObfuscationHelp": "Encodes email and phone in the HTML to make scraping harder. Note: Determined scrapers can still decode this.",
     "blockRobots": "Block Search Engines",
-    "blockRobotsHelp": "Adds meta robots tag to prevent search engines from indexing this card."
+    "blockRobotsHelp": "Adds meta robots tag to prevent search engines from indexing this card.",
+    "requireInteractionLabel": "Require Interaction",
+    "clientSideObfuscationLabel": "Client-Side Obfuscation",
+    "blockRobotsLabel": "Block Search Engines"
   },
   "modals": {
     "whatWouldYouLikeToDo": "What would you like to do?",
@@ -539,7 +617,14 @@
     "addColor": "Add Color",
     "editingColor": "Editing: {{colorName}}",
     "noColorsDefined": "No colors defined. Add a color to get started.",
-    "mustHaveAtLeastOne": "You must have at least one color"
+    "mustHaveAtLeastOne": "You must have at least one color",
+    "colorType": "Color Type",
+    "standardColors": "Standard Colors",
+    "customColours": "Custom Colours",
+    "secondaryColor": "Secondary Color (optional)",
+    "leaveBlankAuto": "Leave blank to use auto (complementary) color",
+    "secondaryAutoLabel": "Secondary: Auto (complementary)",
+    "advancedStyles": "Advanced: Generated Styles"
   },
   "social": {
     "linkedin": "LinkedIn",
@@ -547,7 +632,11 @@
     "instagram": "Instagram",
     "insta": "Insta",
     "github": "GitHub",
-    "website": "Web"
+    "website": "Web",
+    "web": "Web",
+    "x": "X",
+    "instaShort": "Insta",
+    "git": "Git"
   },
   "version": {
     "youAreOnLatest": "You are on the latest release",

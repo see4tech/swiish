@@ -583,7 +583,7 @@ function VersionBadge() {
 }
 
 function LanguageSelector({ csrfToken }) {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const handleChange = async (lang) => {
     i18n.changeLanguage(lang);
@@ -610,7 +610,7 @@ function LanguageSelector({ csrfToken }) {
     <button
       onClick={() => handleChange(currentLang === 'es' ? 'en' : 'es')}
       className="px-3 py-2 md:px-4 md:py-3 rounded-full font-medium text-text-muted dark:text-text-muted-dark bg-card dark:bg-card-dark border border-border dark:border-border-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors whitespace-nowrap text-sm md:text-base"
-      title={currentLang === 'es' ? 'Switch to English' : 'Cambiar a Español'}
+      title={currentLang === 'es' ? t('common.switchToEnglish') : t('common.switchToSpanish')}
     >
       {currentLang === 'es' ? 'EN' : 'ES'}
     </button>
@@ -917,12 +917,12 @@ const [settings, setSettings] = useState({
         } else {
           // Setup not complete, show wizard
           setView('setup-wizard');
-          document.title = "Initial Setup";
+          document.title = t("common.initialSetup");
         }
       }).catch(() => {
         // If check fails, show wizard anyway
         setView('setup-wizard');
-        document.title = "Initial Setup";
+        document.title = t("common.initialSetup");
       });
       return;
     } else if (path === '/login') {
@@ -936,12 +936,12 @@ const [settings, setSettings] = useState({
         } else {
           // Not authenticated, show login page
           setView('admin-login');
-          document.title = "Admin Login";
+          document.title = t("common.adminLogin");
         }
       }).catch(() => {
         // Not authenticated, show login page
         setView('admin-login');
-        document.title = "Admin Login";
+        document.title = t("common.adminLogin");
       });
     } else if (path === '/settings') {
       setView('admin-settings');
@@ -961,7 +961,7 @@ const [settings, setSettings] = useState({
       });
     } else if (path === '/admin') {
       setView('platform-admin');
-      document.title = 'Platform Admin';
+      document.title = t("common.platformAdmin");
       fetchCsrfToken();
       checkAuth().then((authResult) => {
         if (!authResult.isAuthenticated) {
@@ -988,7 +988,7 @@ const [settings, setSettings] = useState({
             if (authResult.isAuthenticated) {
               // Demo mode: always show dashboard for demo user (owner role)
               setView('admin-dashboard');
-              document.title = "Admin Dashboard";
+              document.title = t("common.adminDashboard");
             } else {
               // This shouldn't happen in demo mode, but fallback to login just in case
               navigate('/login');
@@ -1005,11 +1005,11 @@ const [settings, setSettings] = useState({
         if (status === null) {
           // If check failed (server not running, network error, etc.), default to setup wizard
           navigate('/setup');
-          document.title = "Initial Setup";
+          document.title = t("common.initialSetup");
         } else if (!status.setupComplete || status.userCount === 0) {
           // Setup not complete or no users exist, show setup wizard
           navigate('/setup');
-          document.title = "Initial Setup";
+          document.title = t("common.initialSetup");
         } else {
           // Setup complete, check authentication
           if (path === '/') {
@@ -1034,7 +1034,7 @@ const [settings, setSettings] = useState({
                 // Owner - show dashboard
                 setView('admin-dashboard');
               }
-          document.title = "Admin Dashboard";
+          document.title = t("common.adminDashboard");
             } else {
               // Not authenticated, redirect to login (explicit redirect)
               navigate('/login');
@@ -1048,7 +1048,7 @@ const [settings, setSettings] = useState({
         // If promise rejects, default to setup wizard
         console.error('Setup status check failed:', e);
         navigate('/setup');
-        document.title = "Initial Setup";
+        document.title = t("common.initialSetup");
       });
     }
   }, [location.pathname, navigate]);
@@ -1123,17 +1123,17 @@ const [settings, setSettings] = useState({
           privacy: json.privacy || defaultTemplate.privacy
         });
         setView('public-card');
-        document.title = json.personal?.name ? `${json.personal.name} - Swiish Card` : "Swiish Card";
+        document.title = json.personal?.name ? `${json.personal.name} - Swiish Card` : t("common.swiishCard");
       } else {
-        setError('Card not found');
+        setError(t('card.cardNotFoundMsg'));
         setView('404');
-        document.title = "Card Not Found";
+        document.title = t("common.cardNotFoundTitle");
       }
     } catch (e) {
       console.error('Error fetching public card:', e);
-      setError('Connection failed');
+      setError(t('card.connectionFailed'));
       setView('404');
-      document.title = "Error Loading Card";
+      document.title = t("common.errorLoadingCard");
     } finally {
       setIsPublicLoading(false);
     }
@@ -1164,17 +1164,17 @@ const [settings, setSettings] = useState({
         setData(mergedData);
         setView('public-card');
         const name = `${cardData.personal?.firstName || ''} ${cardData.personal?.lastName || ''}`.trim();
-        document.title = name || 'Card';
+        document.title = name || t('common.swiishCard');
       } else {
         setView('404');
-        setError('Card not found');
-        document.title = 'Card Not Found';
+        setError(t('card.cardNotFoundMsg'));
+        document.title = t("common.cardNotFoundTitle");
       }
     } catch (e) {
       console.error('[FRONTEND] Error fetching card by short code:', e);
       setView('404');
-      setError('Failed to load card');
-      document.title = 'Card Not Found';
+      setError(t('common.errorLoadingCard'));
+      document.title = t("common.cardNotFoundTitle");
     } finally {
       setIsPublicLoading(false);
     }
@@ -1202,17 +1202,17 @@ const [settings, setSettings] = useState({
         setData(mergedData);
         setView('public-card');
         const name = `${cardData.personal?.firstName || ''} ${cardData.personal?.lastName || ''}`.trim();
-        document.title = name || 'Card';
+        document.title = name || t('common.swiishCard');
       } else {
         setView('404');
-        setError('Card not found');
-        document.title = 'Card Not Found';
+        setError(t('card.cardNotFoundMsg'));
+        document.title = t("common.cardNotFoundTitle");
       }
     } catch (e) {
       console.error('[FRONTEND] Error fetching card by org and slug:', e);
       setView('404');
-      setError('Failed to load card');
-      document.title = 'Card Not Found';
+      setError(t('common.errorLoadingCard'));
+      document.title = t("common.cardNotFoundTitle");
     } finally {
       setIsPublicLoading(false);
     }
@@ -1798,7 +1798,7 @@ const [settings, setSettings] = useState({
                     type="text" 
                     value={setupData.organisationName} 
                     onChange={e => setSetupData({ ...setupData, organisationName: e.target.value })} 
-                    placeholder="My Organization" 
+                    placeholder={t("setup.placeholderOrganisation")} 
                     className="w-full px-5 py-3 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark" 
                     required 
                     autoFocus 
@@ -1810,7 +1810,7 @@ const [settings, setSettings] = useState({
                     type="email" 
                     value={setupData.adminEmail} 
                     onChange={e => setSetupData({ ...setupData, adminEmail: e.target.value })} 
-                    placeholder="admin@example.com" 
+                    placeholder={t("setup.placeholderAdminEmail")} 
                     className="w-full px-5 py-3 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark" 
                     required 
                   />
@@ -1909,7 +1909,7 @@ const [settings, setSettings] = useState({
                    </button>
                  )}
                  {isPlatformAdmin && (
-                   <button onClick={() => { setView('platform-admin'); document.title = 'Platform Admin'; navigate('/admin'); }} className="px-3 py-2 md:px-4 md:py-3 rounded-full font-medium text-text-secondary dark:text-text-secondary-dark bg-card dark:bg-card-dark border border-border dark:border-border-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors whitespace-nowrap flex items-center gap-2 text-sm md:text-base">
+                   <button onClick={() => { setView('platform-admin'); document.title = t("common.platformAdmin"); navigate('/admin'); }} className="px-3 py-2 md:px-4 md:py-3 rounded-full font-medium text-text-secondary dark:text-text-secondary-dark bg-card dark:bg-card-dark border border-border dark:border-border-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors whitespace-nowrap flex items-center gap-2 text-sm md:text-base">
                      <Shield className="w-4 h-4" /> <span className="hidden sm:inline">{t('dashboard.platformAdminNav')}</span><span className="sm:hidden">{t('dashboard.adminNav')}</span>
                    </button>
                  )}
@@ -2010,16 +2010,16 @@ const [settings, setSettings] = useState({
                                     {card.title && <p className="text-text-muted dark:text-text-muted-dark text-xs mb-1 truncate">{card.title}</p>}
                                     <div className="space-y-0.5">
                                       {card.shortCode && (
-                                        <div className="text-[10px] text-text-muted-subtle dark:text-text-muted-dark font-mono truncate" title="Short Code URL">
+                                        <div className="text-[10px] text-text-muted-subtle dark:text-text-muted-dark font-mono truncate" title={t("card.shortCodeUrl")}>
                                           <span className="text-text-muted-subtle dark:text-text-muted-dark">Short:</span> /{card.shortCode}
                                         </div>
                                       )}
                                       {card.orgSlug && card.slug ? (
-                                        <div className="text-[10px] text-text-muted-subtle dark:text-text-muted-dark font-mono truncate" title="Org-scoped URL">
+                                        <div className="text-[10px] text-text-muted-subtle dark:text-text-muted-dark font-mono truncate" title={t("card.orgScopedUrl")}>
                                           <span className="text-text-muted-subtle dark:text-text-muted-dark">URL:</span> /{card.orgSlug}/{card.slug}
                                         </div>
                                       ) : card.slug ? (
-                                        <div className="text-[10px] text-text-muted-subtle dark:text-text-muted-dark font-mono truncate" title="Legacy URL">
+                                        <div className="text-[10px] text-text-muted-subtle dark:text-text-muted-dark font-mono truncate" title={t("card.legacyUrl")}>
                                           <span className="text-text-muted-subtle dark:text-text-muted-dark">URL:</span> /{card.slug}
                                         </div>
                                       ) : null}
@@ -2118,7 +2118,7 @@ const [settings, setSettings] = useState({
                       value={newInvitation.email}
                       onChange={(e) => setNewInvitation({ ...newInvitation, email: e.target.value })}
                       className="w-full px-4 py-2.5 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark focus:border-action dark:focus:border-action-dark"
-                      placeholder="user@example.com"
+                      placeholder={t("auth.emailPlaceholder")}
                     />
                     <p className="text-xs text-text-muted dark:text-text-muted-dark mt-1">{t('users.invitationEmailNote')}</p>
                   </div>
@@ -2168,7 +2168,7 @@ const [settings, setSettings] = useState({
                       value={newUser.email}
                       onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
                       className="w-full px-4 py-2.5 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark focus:border-action dark:focus:border-action-dark"
-                      placeholder="user@example.com"
+                      placeholder={t("auth.emailPlaceholder")}
                     />
                   </div>
                   <div>
@@ -2530,15 +2530,15 @@ function CardDisplay({ data, settings, darkMode, toggleDarkMode, showAlert }) {
 
   const whatsappLink = ownerPhoneDigits && ownerPhoneDigits.length >= 8
     ? `https://wa.me/${ownerPhoneDigits}?text=${encodeURIComponent(
-        'Hi, we met via your Swiish card. My name is ... and my number/email is ...'
+        t('card.whatsappTemplate')
       )}`
     : null;
 
   const emailLink = ownerEmail
     ? `mailto:${ownerEmail}?subject=${encodeURIComponent(
-        'My details from Swiish'
+        t('card.emailSubjectTemplate')
       )}&body=${encodeURIComponent(
-        'Hi, we met via your Swiish card.\nMy name is ...\nMy phone number is ...\nMy email address is ...'
+        t('card.emailBodyTemplate')
       )}`
     : null;
 
@@ -2727,7 +2727,7 @@ function CardDisplay({ data, settings, darkMode, toggleDarkMode, showAlert }) {
         })
         .catch(err => {
           console.error('Failed to fetch simple QR code:', err);
-          setQrError('Unable to load link-only QR right now. Please try again in a moment.');
+          setQrError(t('card.qrErrorSimple'));
         });
     } else if (qrMode === 'rich' && !qrRichDataUrl) {
       fetch(`${API_ENDPOINT}/qr/${qrIdentifier}`, {
@@ -2755,7 +2755,7 @@ function CardDisplay({ data, settings, darkMode, toggleDarkMode, showAlert }) {
           if (cached) {
             setOfflineQrPayload(cached);
           }
-          setQrError('Unable to load full-details QR right now. Your last saved details are still available offline.');
+          setQrError(t('card.qrErrorRich'));
         });
     }
   }, [showQR, qrMode, qrSimpleDataUrl, qrRichDataUrl, personal, contact, social, images, theme, data]);
@@ -2826,23 +2826,23 @@ function CardDisplay({ data, settings, darkMode, toggleDarkMode, showAlert }) {
                 <img src={currentQrDataUrl} className="w-full aspect-square mix-blend-multiply dark:mix-blend-normal" alt="QR code" />
               ) : qrMode === 'rich' && offlineQrPayload ? (
                 <div className="w-full aspect-square flex flex-col items-center justify-center text-text-muted-subtle dark:text-text-secondary-dark text-xs space-y-1">
-                  <span>{isOnline ? 'Saved details' : 'Offline mode'}</span>
+                  <span>{isOnline ? t('card.qrSavedDetails') : t('card.qrOfflineMode')}</span>
                   <span className="text-[10px] opacity-80 px-1">
-                    This code includes your saved Swiish details and a link to your card when scanned with an online device.
+                    {t('card.qrSavedDetailsDesc')}
                   </span>
                 </div>
               ) : (!isOnline && qrMode === 'simple' && !qrSimpleDataUrl) ? (
                 <div className="w-full aspect-square flex flex-col items-center justify-center text-text-muted-subtle dark:text-text-secondary-dark text-xs text-center space-y-1">
-                  <span>Link-only QR is available when you&apos;re online.</span>
+                  <span>{t('card.qrLinkOnlyOffline')}</span>
                   <span className="text-[10px] opacity-80 px-1">
-                    Switch to \"Full details\" to use your saved offline code.
+                    {t('card.qrSwitchToFull')}
                   </span>
                 </div>
               ) : (
                 <div className="w-full aspect-square flex items-center justify-center text-text-muted-subtle dark:text-text-muted-dark text-xs text-center">
                   {isOnline
-                    ? (qrError || 'Loading your QR code...')
-                    : 'Connect once to generate and save your QR code for offline use.'}
+                    ? (qrError || t('card.qrLoading'))
+                    : t('card.qrConnectOnce')}
                 </div>
               )}
             </div>
@@ -2864,7 +2864,7 @@ function CardDisplay({ data, settings, darkMode, toggleDarkMode, showAlert }) {
           {/* Offline note */}
           {!isOnline && offlineQrPayload && (
             <p className="text-xs text-text-muted dark:text-text-muted-dark mt-4 px-4">
-              Using last saved QR details (offline). The code includes your contact info and a link to your Swiish card.
+              {t('card.qrOfflineNote')}
             </p>
           )}
         </div>
@@ -2945,9 +2945,9 @@ function CardDisplay({ data, settings, darkMode, toggleDarkMode, showAlert }) {
                     console.error('Install prompt failed:', e);
                     if (typeof showAlert === 'function') {
                       showAlert(
-                        'Install prompt failed. Please use your browser menu to install: Chrome/Edge (three dots menu > Install app), Firefox (menu > Install), or Safari (Share > Add to Home Screen).',
+                        t('card.installFailedMsg'),
                         'error',
-                        'Install Failed'
+                        t('card.installFailed')
                       );
                     }
                   } finally {
@@ -2957,38 +2957,38 @@ function CardDisplay({ data, settings, darkMode, toggleDarkMode, showAlert }) {
                   // Check if app is already installed
                   const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
                                       window.navigator.standalone === true;
-                  
+
                   if (isStandalone) {
                     if (typeof showAlert === 'function') {
                       showAlert(
-                        'This app is already installed on your device.',
+                        t('card.alreadyInstalledMsg'),
                         'info',
-                        'Already Installed'
+                        t('card.alreadyInstalled')
                       );
                     }
                     setIsPwaInstalled(true);
                   } else {
                     // Provide manual installation instructions
                     const userAgent = navigator.userAgent.toLowerCase();
-                    let instructions = 'To install this app:\n\n';
-                    
+                    let instructions = t('card.installInstructions');
+
                     if (userAgent.includes('chrome') || userAgent.includes('edge')) {
-                      instructions += 'Chrome/Edge: Click the three dots menu (⋮) in the address bar, then select "Install app" or "Add to Home Screen".';
+                      instructions += t('card.installChrome');
                     } else if (userAgent.includes('firefox')) {
-                      instructions += 'Firefox: Click the menu button, then select "Install" or "Add to Home Screen".';
+                      instructions += t('card.installFirefox');
                     } else if (userAgent.includes('safari')) {
-                      instructions += 'Safari (iOS): Tap the Share button, then "Add to Home Screen".';
+                      instructions += t('card.installSafari');
                     } else {
-                      instructions += 'Open your browser menu and look for "Install app" or "Add to Home Screen" option.';
+                      instructions += t('card.installGeneric');
                     }
-                    
-                    instructions += '\n\nNote: The install button may not be available if the app doesn\'t meet PWA requirements (service worker, valid manifest, etc.).';
-                    
+
+                    instructions += t('card.installNote');
+
                     if (typeof showAlert === 'function') {
                       showAlert(
                         instructions,
                         'info',
-                        'Install Swiish'
+                        t('card.installSwiish')
                       );
                     } else {
                       // Fallback if showAlert is not available
@@ -3261,11 +3261,11 @@ function CardDisplay({ data, settings, darkMode, toggleDarkMode, showAlert }) {
         )}
 
         <div className="grid grid-cols-4 gap-3 mb-8">
-           <SocialIcon url={contact.website} icon={Globe} label="Web" themeColor={themeColor} />
-           <SocialIcon url={social.linkedin} icon={Linkedin} label="LinkedIn" themeColor={themeColor} />
-           <SocialIcon url={social.twitter} icon={Twitter} label="X" themeColor={themeColor} />
-           <SocialIcon url={social.instagram} icon={Instagram} label="Insta" themeColor={themeColor} />
-           <SocialIcon url={social.github} icon={Github} label="Git" themeColor={themeColor} />
+           <SocialIcon url={contact.website} icon={Globe} label={t("social.web")} themeColor={themeColor} />
+           <SocialIcon url={social.linkedin} icon={Linkedin} label={t("social.linkedin")} themeColor={themeColor} />
+           <SocialIcon url={social.twitter} icon={Twitter} label={t("social.x")} themeColor={themeColor} />
+           <SocialIcon url={social.instagram} icon={Instagram} label={t("social.instaShort")} themeColor={themeColor} />
+           <SocialIcon url={social.github} icon={Github} label={t("social.git")} themeColor={themeColor} />
         </div>
 
         {/* Swiish logo */}
@@ -3417,7 +3417,7 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
                         value={settings?.default_organisation || data.personal.company || ''} 
                         disabled
                         className="w-full px-4 py-2.5 rounded-input border border-border dark:border-border-dark bg-surface dark:bg-surface-dark text-text-secondary dark:text-text-muted-dark cursor-not-allowed" 
-                        placeholder="Organisation Name"
+                        placeholder={t("editor.placeholderOrgName")}
                       />
                       <div className="absolute inset-0 flex items-center justify-end pr-3 pointer-events-none">
                         <Lock className="w-4 h-4 text-text-muted-subtle dark:text-text-muted-dark" />
@@ -3430,22 +3430,22 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
                 <TextArea label={t('editor.bio')} value={data.personal.bio} onChange={v => handleInputChange('personal', 'bio', v)} />
                 <div className="h-px bg-surface dark:bg-surface-dark" />
                 <div className="space-y-4">
-                  <Input icon={Mail} placeholder="Email" value={data.contact.email} onChange={v => handleInputChange('contact', 'email', v)} type="email" />
+                  <Input icon={Mail} placeholder={t("editor.placeholderEmail")} value={data.contact.email} onChange={v => handleInputChange('contact', 'email', v)} type="email" />
                   <div className="space-y-1">
                     <PhoneInput
                       international
                       defaultCountry="GB"
                       value={data.contact.phone || ''}
                       onChange={(value) => handleInputChange('contact', 'phone', value || '')}
-                      placeholder="Phone"
+                      placeholder={t("editor.placeholderPhone")}
                       flags={flags}
                     />
                   </div>
-                  <Input icon={Globe} placeholder="Website" value={data.contact.website} onChange={v => handleInputChange('contact', 'website', v)} type="url" />
-                  <Input icon={Linkedin} placeholder="LinkedIn" value={data.social.linkedin} onChange={v => handleInputChange('social', 'linkedin', v)} type="url" />
-                  <Input icon={Twitter} placeholder="Twitter / X" value={data.social.twitter} onChange={v => handleInputChange('social', 'twitter', v)} type="url" />
-                  <Input icon={Instagram} placeholder="Instagram" value={data.social.instagram} onChange={v => handleInputChange('social', 'instagram', v)} type="url" />
-                  <Input icon={Github} placeholder="Github" value={data.social.github} onChange={v => handleInputChange('social', 'github', v)} type="url" />
+                  <Input icon={Globe} placeholder={t("editor.placeholderWebsite")} value={data.contact.website} onChange={v => handleInputChange('contact', 'website', v)} type="url" />
+                  <Input icon={Linkedin} placeholder={t("editor.placeholderLinkedIn")} value={data.social.linkedin} onChange={v => handleInputChange('social', 'linkedin', v)} type="url" />
+                  <Input icon={Twitter} placeholder={t("editor.placeholderTwitter")} value={data.social.twitter} onChange={v => handleInputChange('social', 'twitter', v)} type="url" />
+                  <Input icon={Instagram} placeholder={t("editor.placeholderInstagram")} value={data.social.instagram} onChange={v => handleInputChange('social', 'instagram', v)} type="url" />
+                  <Input icon={Github} placeholder={t("editor.placeholderGithub")} value={data.social.github} onChange={v => handleInputChange('social', 'github', v)} type="url" />
                 </div>
              </div>
            )}
@@ -3504,7 +3504,7 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
                                     className="p-1 rounded-button border border-border dark:border-border-dark bg-card dark:bg-surface-dark text-text-muted dark:text-text-muted-dark hover:border-action-dark hover:text-action-dark dark:hover:border-action dark:hover:text-action"
                                     {...attributes}
                                     {...listeners}
-                                    aria-label="Drag to reorder"
+                                    aria-label={t("links.dragToReorderAria")}
                                   >
                                     <GripVertical className="w-4 h-4" />
                                   </button>
@@ -3515,7 +3515,7 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
                                     onClick={() => moveLinkUp(index)}
                                     disabled={index === 0}
                                     className={`p-1 rounded-button border border-border dark:border-border-dark bg-card dark:bg-surface-dark text-text-muted dark:text-text-muted-dark hover:border-action-dark hover:text-action-dark dark:hover:border-action dark:hover:text-action disabled:opacity-40 disabled:cursor-not-allowed`}
-                                    aria-label="Move link up"
+                                    aria-label={t("links.moveLinkUpAria")}
                                   >
                                     <ChevronUp className="w-4 h-4" />
                                   </button>
@@ -3524,7 +3524,7 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
                                     onClick={() => moveLinkDown(index)}
                                     disabled={index === data.links.length - 1}
                                     className={`p-1 rounded-button border border-border dark:border-border-dark bg-card dark:bg-surface-dark text-text-muted dark:text-text-muted-dark hover:border-action-dark hover:text-action-dark dark:hover:border-action dark:hover:text-action disabled:opacity-40 disabled:cursor-not-allowed`}
-                                    aria-label="Move link down"
+                                    aria-label={t("links.moveLinkDownAria")}
                                   >
                                     <ChevronDown className="w-4 h-4" />
                                   </button>
@@ -3539,7 +3539,7 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
                                     </div>
                                     <input 
                                       type="text" 
-                                      placeholder="Link Title (e.g. Download CV)"
+                                      placeholder={t("editor.placeholderLinkTitle")}
                                       value={link.title}
                                       onChange={(e) => updateLink(link.id, 'title', e.target.value)}
                                       className="flex-1 bg-card dark:bg-surface-dark border border-border dark:border-border-dark text-text-primary dark:text-text-primary-dark rounded-input px-3 py-2 text-sm focus:outline-none focus:border-action dark:focus:border-action-dark"
@@ -3547,7 +3547,7 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
                                   </div>
                                   <input 
                                     type="text" 
-                                    placeholder="https://..."
+                                    placeholder={t("editor.placeholderLinkUrl")}
                                     value={link.url}
                                     onChange={(e) => updateLink(link.id, 'url', e.target.value)}
                                     className="w-full bg-card dark:bg-surface-dark border border-border dark:border-border-dark text-text-primary dark:text-text-primary-dark rounded-input px-3 py-2 text-sm focus:outline-none focus:border-action dark:focus:border-action-dark"
@@ -3640,22 +3640,22 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
                   <LockedOption message={t('emptyStates.disabledPrivacy')}>
                     <div className="space-y-6">
                       <Toggle
-                        label="Require Interaction"
-                        description="Requires users to click a button to reveal email and phone. Prevents basic bots from seeing contact info in the initial page load."
+                        label={t("privacy.requireInteractionLabel")}
+                        description={t("privacy.requireInteractionHelp")}
                         checked={data.privacy?.requireInteraction ?? true}
                         onChange={() => {}}
                       />
                       <div className="h-px bg-border-subtle" />
                       <Toggle
-                        label="Client-Side Obfuscation"
-                        description="Encodes email and phone in the HTML to make scraping harder. Note: Determined scrapers can still decode this."
+                        label={t("privacy.clientSideObfuscationLabel")}
+                        description={t("privacy.clientSideObfuscationHelp")}
                         checked={data.privacy?.clientSideObfuscation ?? false}
                         onChange={() => {}}
                       />
                       <div className="h-px bg-border-subtle" />
                       <Toggle
-                        label="Block Search Engines"
-                        description="Adds meta robots tag to prevent search engines from indexing this card."
+                        label={t("privacy.blockRobotsLabel")}
+                        description={t("privacy.blockRobotsHelp")}
                         checked={data.privacy?.blockRobots ?? false}
                         onChange={() => {}}
                       />
@@ -3664,22 +3664,22 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
                 ) : (
                   <div className="space-y-6">
                     <Toggle
-                      label="Require Interaction"
-                      description="Requires users to click a button to reveal email and phone. Prevents basic bots from seeing contact info in the initial page load."
+                      label={t("privacy.requireInteractionLabel")}
+                      description={t("privacy.requireInteractionHelp")}
                       checked={data.privacy?.requireInteraction ?? true}
                       onChange={(checked) => handleInputChange('privacy', 'requireInteraction', checked)}
                     />
                     <div className="h-px bg-border-subtle" />
                     <Toggle
-                      label="Client-Side Obfuscation"
-                      description="Encodes email and phone in the HTML to make scraping harder. Note: Determined scrapers can still decode this."
+                      label={t("privacy.clientSideObfuscationLabel")}
+                      description={t("privacy.clientSideObfuscationHelp")}
                       checked={data.privacy?.clientSideObfuscation ?? false}
                       onChange={(checked) => handleInputChange('privacy', 'clientSideObfuscation', checked)}
                     />
                     <div className="h-px bg-border-subtle" />
                     <Toggle
-                      label="Block Search Engines"
-                      description="Adds meta robots tag to prevent search engines from indexing this card."
+                      label={t("privacy.blockRobotsLabel")}
+                      description={t("privacy.blockRobotsHelp")}
                       checked={data.privacy?.blockRobots ?? false}
                       onChange={(checked) => handleInputChange('privacy', 'blockRobots', checked)}
                     />
@@ -4299,7 +4299,7 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
                           <button
                             onClick={() => handleRetryInvitation(inv.id)}
                             className="px-3 py-1.5 text-sm bg-action dark:bg-action-dark text-white rounded-button hover:bg-action-hover dark:hover:bg-action-hover-dark flex items-center gap-1"
-                            title="Retry sending email"
+                            title={t("users.retryEmail")}
                           >
                             <RefreshCw className="w-3 h-3" /> {t('common.retry')}
                           </button>
@@ -4307,7 +4307,7 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
                         <button
                           onClick={() => handleDeleteInvitation(inv.id)}
                           className="px-3 py-1.5 text-sm bg-error-bg dark:bg-error-bg-dark text-error dark:text-error-text-dark rounded-badge hover:bg-error-bg dark:hover:bg-error-bg-dark flex items-center gap-1"
-                          title="Delete invitation"
+                          title={t("users.deleteInvitation")}
                         >
                           <Trash2 className="w-3 h-3" /> {t('common.delete')}
                         </button>
@@ -4334,7 +4334,7 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
                   value={newUser.email}
                   onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark focus:border-action dark:focus:border-action-dark"
-                  placeholder="user@example.com"
+                  placeholder={t("auth.emailPlaceholder")}
                 />
               </div>
               <div>
@@ -4401,7 +4401,7 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
                   value={newInvitation.email}
                   onChange={(e) => setNewInvitation({ ...newInvitation, email: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark focus:border-action dark:focus:border-action-dark"
-                  placeholder="user@example.com"
+                  placeholder={t("auth.emailPlaceholder")}
                 />
                 <p className="text-xs text-text-muted dark:text-text-muted-dark mt-1">{t('users.invitationEmailNote')}</p>
               </div>
@@ -4490,15 +4490,15 @@ function InvitationAcceptance({ apiCall, showAlert, API_ENDPOINT }) {
           const errorData = await res.json().catch(() => ({}));
           // If already accepted, treat as success and redirect
           if (errorData.error && errorData.error.includes('already been accepted')) {
-            if (showAlert) showAlert('Welcome! Your account has been created.', 'success');
+            if (showAlert) showAlert(t('invitation.welcomeCreated'), 'success');
             setTimeout(() => navigate('/'), 500);
           } else {
-            setError(errorData.error || 'Invitation not found or has expired');
+            setError(errorData.error || t('invitation.notFoundOrExpired'));
             setInvitation(null);
           }
         }
       } catch (e) {
-        setError('Error loading invitation');
+        setError(t('invitation.errorLoading'));
         setInvitation(null);
       } finally {
         setIsLoading(false);
@@ -4514,17 +4514,17 @@ function InvitationAcceptance({ apiCall, showAlert, API_ENDPOINT }) {
     setPasswordError(null);
 
     if (!password) {
-      setPasswordError('Password is required');
+      setPasswordError(t('invitation.passwordRequired'));
       return false;
     }
 
     if (password.length < 8) {
-      setPasswordError('Password must be at least 8 characters');
+      setPasswordError(t('invitation.passwordMin8'));
       return false;
     }
 
     if (password !== confirmPassword) {
-      setPasswordError('Passwords do not match');
+      setPasswordError(t('invitation.passwordsDoNotMatch'));
       return false;
     }
 
@@ -4549,15 +4549,15 @@ function InvitationAcceptance({ apiCall, showAlert, API_ENDPOINT }) {
         const data = await res.json();
         // Set flag immediately to prevent re-fetching during redirect window
         setHasAccepted(true);
-        if (showAlert) showAlert('Welcome! Your account has been created.', 'success');
+        if (showAlert) showAlert(t('invitation.welcomeCreated'), 'success');
         // Redirect to dashboard
         setTimeout(() => navigate('/'), 1000);
       } else {
         const errorData = await res.json().catch(() => ({}));
-        setPasswordError(errorData.error || 'Failed to accept invitation');
+        setPasswordError(errorData.error || t('invitation.failedAccept'));
       }
     } catch (e) {
-      setPasswordError('Error accepting invitation');
+      setPasswordError(t('invitation.errorAccepting'));
     } finally {
       setIsSubmitting(false);
     }
@@ -5072,7 +5072,7 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
                     value={localSettings.default_organisation || ''}
                     onChange={(e) => setLocalSettings(prev => ({ ...prev, default_organisation: e.target.value }))}
                     className="w-full px-4 py-2.5 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark focus:border-action dark:focus:border-action-dark"
-                    placeholder="Organisation Name"
+                    placeholder={t("editor.placeholderOrgName")}
                   />
                 </div>
               )}
@@ -5198,8 +5198,8 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
               {isAppThemesOpen && (
                 <div className="mt-4 space-y-3">
                   {[
-                    { id: 'swiish', title: 'Swiish', desc: 'Original Swiish theme with colors and textures.' },
-                    { id: 'minimal', title: 'Minimal', desc: 'Black/white, few grays, no textures, border-only accents.' },
+                    { id: 'swiish', title: t('settings.themeSwiishTitle'), desc: t('settings.themeSwiishDesc') },
+                    { id: 'minimal', title: t('settings.themeMinimalTitle'), desc: t('settings.themeMinimalDesc') },
                   ].map(opt => (
                     <label
                       key={opt.id}
@@ -5271,19 +5271,19 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
                               onClick={() => removeColor(index)}
                               className="px-3 py-1 text-sm bg-error-bg dark:bg-error-bg-dark text-error dark:text-error-text-dark border border-error-border dark:border-error-border-dark rounded-badge hover:bg-error-bg dark:hover:bg-error-bg-dark"
                             >
-                              Delete
+                              {t('common.delete')}
                             </button>
                           </div>
                         </div>
                         
                         <Input
-                          label="Color Name"
+                          label={t("colors.colorName")}
                           value={color.name}
                           onChange={(v) => updateColor(index, 'name', v)}
                         />
 
                         <div>
-                          <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">Color Type</label>
+                          <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">{t("colors.colorType")}</label>
                           <div className="flex gap-2">
                             <button
                               onClick={() => updateColor(index, 'colorType', 'standard')}
@@ -5293,7 +5293,7 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
                                   : 'bg-card dark:bg-surface-dark border-border dark:border-border-dark text-text-secondary dark:text-text-secondary-dark hover:bg-surface dark:hover:bg-surface-dark'
                               }`}
                             >
-                              Standard Colors
+                              {t('colors.standardColors')}
                             </button>
                             <button
                               onClick={() => updateColor(index, 'colorType', 'custom')}
@@ -5303,7 +5303,7 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
                                   : 'bg-card dark:bg-surface-dark border-border dark:border-border-dark text-text-secondary dark:text-text-secondary-dark hover:bg-surface dark:hover:bg-surface-dark'
                               }`}
                             >
-                              Custom Colours
+                              {t('colors.customColours')}
                             </button>
                           </div>
                         </div>
@@ -5311,16 +5311,16 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
                         {(color.colorType || 'standard') === 'standard' ? (
                           <>
                             <ColorSelector
-                              label="Base Color"
+                              label={t("colors.baseColor")}
                               selectedColor={color.baseColor || 'indigo'}
                               onSelect={(selected) => updateColor(index, 'baseColor', selected)}
                             />
-                            <p className="text-xs text-text-muted dark:text-text-muted-dark">Secondary: Auto (complementary)</p>
+                            <p className="text-xs text-text-muted dark:text-text-muted-dark">{t("colors.secondaryAutoLabel")}</p>
                           </>
                         ) : (
                           <>
                             <div>
-                              <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">Base Color</label>
+                              <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">{t("colors.baseColor")}</label>
                               <div className="flex gap-2 items-center">
                                 <input
                                   type="color"
@@ -5339,7 +5339,7 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
                             </div>
 
                             <div>
-                              <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">Secondary Color (optional)</label>
+                              <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">{t("colors.secondaryColor")}</label>
                               <div className="flex gap-2 items-center">
                                 <input
                                   type="color"
@@ -5351,18 +5351,18 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
                                   type="text"
                                   value={color.hexSecondary || ''}
                                   onChange={(e) => updateColor(index, 'hexSecondary', e.target.value || null)}
-                                  placeholder="Leave blank for auto (complementary)"
+                                  placeholder={t("colors.leaveBlankComplementary")}
                                   className="flex-1 px-4 py-2.5 rounded-input border border-border dark:border-border-dark bg-card dark:bg-surface-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark focus:border-action dark:focus:border-action-dark font-mono text-sm"
                                 />
                               </div>
-                              <p className="text-xs text-text-muted dark:text-text-muted-dark mt-1">Leave blank to use auto (complementary) color</p>
+                              <p className="text-xs text-text-muted dark:text-text-muted-dark mt-1">{t("colors.leaveBlankAuto")}</p>
                             </div>
                           </>
                         )}
 
                         {/* Preview of generated gradient */}
                         <div>
-                          <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">Preview</label>
+                          <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-2 block">{t("settings.preview")}</label>
                           <div 
                             className="w-full h-16 rounded-container overflow-hidden"
                             style={{ background: color.gradientStyle || 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}
@@ -5372,7 +5372,7 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
                         {/* Collapsible advanced view */}
                         <details className="text-sm">
                           <summary className="cursor-pointer text-text-secondary dark:text-text-muted-dark hover:text-text-primary dark:hover:text-text-primary-dark font-medium mb-2">
-                            Advanced: Generated Styles
+                            {t('colors.advancedStyles')}
                           </summary>
                           <div className="bg-card dark:bg-surface-dark p-3 rounded-container border border-border dark:border-border-dark space-y-2 text-xs font-mono">
                             <div><span className="text-text-muted dark:text-text-muted-dark">Gradient Style:</span> <span className="text-text-primary dark:text-text-primary-dark">{color.gradientStyle || 'N/A'}</span></div>
@@ -5422,7 +5422,7 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
           <div className="space-y-4">
             <div>
               <div className="text-sm text-text-secondary dark:text-text-muted-dark mb-2">Default Organisation:</div>
-              <div className="font-medium text-text-primary dark:text-text-primary-dark">{localSettings.default_organisation || 'Not set'}</div>
+              <div className="font-medium text-text-primary dark:text-text-primary-dark">{localSettings.default_organisation || t('common.none')}</div>
             </div>
             <div>
               <div className="text-sm text-text-secondary dark:text-text-muted-dark mb-3">Color Effects:</div>
@@ -5720,7 +5720,7 @@ function PlatformAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm 
                         </div>
                         <div>
                           <div className="font-medium text-text-primary dark:text-text-primary-dark">{org.name}</div>
-                          <div className="text-sm text-text-muted dark:text-text-muted-dark">/{org.slug} &middot; {org.user_count} user{org.user_count !== 1 ? 's' : ''} &middot; Created {formatDate(org.created_at)}</div>
+                          <div className="text-sm text-text-muted dark:text-text-muted-dark">/{org.slug} &middot; {org.user_count} {org.user_count !== 1 ? t('platform.users') : t('platform.user')} &middot; {t('platform.created')} {formatDate(org.created_at)}</div>
                         </div>
                       </div>
                     </div>
@@ -5728,14 +5728,14 @@ function PlatformAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm 
                       <button
                         onClick={() => handleOpenSettings(org)}
                         className="p-2 text-text-muted dark:text-text-muted-dark hover:text-indigo-500 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-full transition-colors"
-                        title="Organisation settings"
+                        title={t("platform.orgSettingsTitle")}
                       >
                         <Settings className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteOrg(org.id, org.name)}
                         className="p-2 text-text-muted dark:text-text-muted-dark hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
-                        title="Delete organisation"
+                        title={t("platform.deleteOrg")}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -5761,11 +5761,11 @@ function PlatformAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm 
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-text-secondary dark:text-text-secondary-dark mb-1">{t('setup.organisationNameLabel')}</label>
-                <input type="text" value={newOrg.organisationName} onChange={(e) => setNewOrg({ ...newOrg, organisationName: e.target.value })} className="w-full px-3 py-2 bg-main dark:bg-main-dark border border-border dark:border-border-dark rounded-input text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-action dark:focus:ring-action-dark" placeholder="Acme Corp" />
+                <input type="text" value={newOrg.organisationName} onChange={(e) => setNewOrg({ ...newOrg, organisationName: e.target.value })} className="w-full px-3 py-2 bg-main dark:bg-main-dark border border-border dark:border-border-dark rounded-input text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-action dark:focus:ring-action-dark" placeholder={t("setup.placeholderOrganisation")} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-text-secondary dark:text-text-secondary-dark mb-1">{t('platform.ownerEmailLabel')}</label>
-                <input type="email" value={newOrg.ownerEmail} onChange={(e) => setNewOrg({ ...newOrg, ownerEmail: e.target.value })} className="w-full px-3 py-2 bg-main dark:bg-main-dark border border-border dark:border-border-dark rounded-input text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-action dark:focus:ring-action-dark" placeholder="owner@example.com" />
+                <input type="email" value={newOrg.ownerEmail} onChange={(e) => setNewOrg({ ...newOrg, ownerEmail: e.target.value })} className="w-full px-3 py-2 bg-main dark:bg-main-dark border border-border dark:border-border-dark rounded-input text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-action dark:focus:ring-action-dark" placeholder={t("auth.emailPlaceholder")} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-text-secondary dark:text-text-secondary-dark mb-1">{t('platform.ownerPasswordLabel')}</label>
@@ -5814,10 +5814,10 @@ function PlatformAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm 
                     <p className="text-xs text-text-muted dark:text-text-muted-dark mt-1">{t('settings.userCustomisationDescription')}</p>
                   </div>
                   <div className="p-4 space-y-4">
-                    <Toggle label="Theme Customisation" description="Allow users to choose theme colors from the palette" checked={orgSettings.allow_theme_customisation === true} onChange={(v) => setOrgSettings({ ...orgSettings, allow_theme_customisation: v })} />
-                    <Toggle label="Image Customisation" description="Allow users to upload custom avatars and banners" checked={orgSettings.allow_image_customisation === true} onChange={(v) => setOrgSettings({ ...orgSettings, allow_image_customisation: v })} />
-                    <Toggle label="Links Customisation" description="Allow users to add custom links to their cards" checked={orgSettings.allow_links_customisation === true} onChange={(v) => setOrgSettings({ ...orgSettings, allow_links_customisation: v })} />
-                    <Toggle label="Privacy Settings" description="Allow users to change privacy settings on their cards" checked={orgSettings.allow_privacy_customisation === true} onChange={(v) => setOrgSettings({ ...orgSettings, allow_privacy_customisation: v })} />
+                    <Toggle label={t('platform.themeCustomisation')} description={t('platform.themeCustomisationDesc')} checked={orgSettings.allow_theme_customisation === true} onChange={(v) => setOrgSettings({ ...orgSettings, allow_theme_customisation: v })} />
+                    <Toggle label={t('platform.imageCustomisation')} description={t('platform.imageCustomisationDesc')} checked={orgSettings.allow_image_customisation === true} onChange={(v) => setOrgSettings({ ...orgSettings, allow_image_customisation: v })} />
+                    <Toggle label={t('platform.linksCustomisation')} description={t('platform.linksCustomisationDesc')} checked={orgSettings.allow_links_customisation === true} onChange={(v) => setOrgSettings({ ...orgSettings, allow_links_customisation: v })} />
+                    <Toggle label={t('platform.privacySettings')} description={t('platform.privacySettingsDesc')} checked={orgSettings.allow_privacy_customisation === true} onChange={(v) => setOrgSettings({ ...orgSettings, allow_privacy_customisation: v })} />
                   </div>
                 </div>
 
@@ -5839,16 +5839,16 @@ function PlatformAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm 
                       (orgSettings.theme_colors || []).map((color, idx) => (
                         <div key={idx} className="flex items-center gap-3 p-3 bg-surface dark:bg-surface-dark rounded-input">
                           <div className="w-8 h-8 rounded-full shrink-0 border border-border dark:border-border-dark" style={{ background: color.gradientStyle || color.hexBase || '#6366f1' }} />
-                          <input type="text" value={color.name || ''} onChange={(e) => handleUpdateColor(idx, 'name', e.target.value)} className="flex-1 px-2 py-1 text-sm bg-main dark:bg-main-dark border border-border dark:border-border-dark rounded text-text-primary dark:text-text-primary-dark" placeholder="Color name" />
+                          <input type="text" value={color.name || ''} onChange={(e) => handleUpdateColor(idx, 'name', e.target.value)} className="flex-1 px-2 py-1 text-sm bg-main dark:bg-main-dark border border-border dark:border-border-dark rounded text-text-primary dark:text-text-primary-dark" placeholder={t("platform.colorName")} />
                           <div className="flex items-center gap-2">
-                            <label className="text-xs text-text-muted dark:text-text-muted-dark">Base</label>
+                            <label className="text-xs text-text-muted dark:text-text-muted-dark">{t('platform.base')}</label>
                             <input type="color" value={color.hexBase || '#6366f1'} onChange={(e) => handleUpdateColor(idx, 'hexBase', e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0 p-0" />
                           </div>
                           <div className="flex items-center gap-2">
-                            <label className="text-xs text-text-muted dark:text-text-muted-dark">Secondary</label>
+                            <label className="text-xs text-text-muted dark:text-text-muted-dark">{t('platform.secondary')}</label>
                             <input type="color" value={color.hexSecondary || color.hexBase || '#8b5cf6'} onChange={(e) => handleUpdateColor(idx, 'hexSecondary', e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0 p-0" />
                           </div>
-                          <button onClick={() => handleRemoveColor(idx)} className="p-1.5 text-text-muted dark:text-text-muted-dark hover:text-red-500 dark:hover:text-red-400 rounded transition-colors" title="Remove color">
+                          <button onClick={() => handleRemoveColor(idx)} className="p-1.5 text-text-muted dark:text-text-muted-dark hover:text-red-500 dark:hover:text-red-400 rounded transition-colors" title={t("platform.removeColor")}>
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>

@@ -39,7 +39,16 @@
     "default": "Predeterminado",
     "custom": "Personalizado",
     "auto": "Auto",
-    "language": "Idioma"
+    "language": "Idioma",
+    "initialSetup": "Configuración inicial",
+    "adminLogin": "Inicio de sesión",
+    "adminDashboard": "Panel de administración",
+    "platformAdmin": "Administración de plataforma",
+    "swiishCard": "Tarjeta Swiish",
+    "cardNotFoundTitle": "Tarjeta no encontrada",
+    "errorLoadingCard": "Error al cargar la tarjeta",
+    "switchToEnglish": "Switch to English",
+    "switchToSpanish": "Cambiar a Español"
   },
   "auth": {
     "loginHeading": "Iniciar sesión",
@@ -130,7 +139,17 @@
     "dragToReorder": "Arrastra para reordenar",
     "locked": "Bloqueado",
     "lockedByOrganisation": "Bloqueado por la organización",
-    "uploadingImage": "Subiendo..."
+    "uploadingImage": "Subiendo...",
+    "placeholderEmail": "Correo electrónico",
+    "placeholderPhone": "Teléfono",
+    "placeholderWebsite": "Sitio web",
+    "placeholderLinkedIn": "LinkedIn",
+    "placeholderTwitter": "Twitter / X",
+    "placeholderInstagram": "Instagram",
+    "placeholderGithub": "Github",
+    "placeholderLinkTitle": "Título del enlace (ej. Descargar CV)",
+    "placeholderLinkUrl": "https://...",
+    "placeholderOrgName": "Nombre de la organización"
   },
   "card": {
     "publicCard": "Tarjeta Swiish",
@@ -165,7 +184,32 @@
     "linkOnly": "Solo enlace",
     "onlySharedNeverSold": "La información solo se comparte con quienes tú elijas. Nunca se vende.",
     "sendYourDetails": "Enviar mis datos",
-    "whatsappMe": "WhatsApp"
+    "whatsappMe": "WhatsApp",
+    "qrSavedDetails": "Detalles guardados",
+    "qrOfflineMode": "Modo sin conexión",
+    "qrSavedDetailsDesc": "Este código incluye tus datos guardados de Swiish y un enlace a tu tarjeta al escanear con un dispositivo en línea.",
+    "qrLinkOnlyOffline": "El QR solo enlace está disponible cuando estás en línea.",
+    "qrSwitchToFull": "Cambia a \"Detalles completos\" para usar tu código guardado sin conexión.",
+    "qrLoading": "Cargando tu código QR...",
+    "qrConnectOnce": "Conéctate una vez para generar y guardar tu código QR para uso sin conexión.",
+    "qrOfflineNote": "Usando últimos detalles de QR guardados (sin conexión). El código incluye tu información de contacto y un enlace a tu tarjeta Swiish.",
+    "qrErrorSimple": "No se pudo cargar el QR solo enlace. Por favor, inténtalo de nuevo en un momento.",
+    "qrErrorRich": "No se pudo cargar el QR con detalles completos. Tus últimos datos guardados siguen disponibles sin conexión.",
+    "whatsappTemplate": "Hola, nos conocimos a través de tu tarjeta Swiish. Mi nombre es ... y mi número/correo es ...",
+    "emailSubjectTemplate": "Mis datos desde Swiish",
+    "emailBodyTemplate": "Hola, nos conocimos a través de tu tarjeta Swiish.\\nMi nombre es ...\\nMi número de teléfono es ...\\nMi dirección de correo es ...",
+    "installFailed": "Instalación fallida",
+    "installFailedMsg": "La solicitud de instalación falló. Por favor, usa el menú de tu navegador para instalar: Chrome/Edge (menú de tres puntos > Instalar app), Firefox (menú > Instalar), o Safari (Compartir > Añadir a pantalla de inicio).",
+    "alreadyInstalled": "Ya instalada",
+    "alreadyInstalledMsg": "Esta app ya está instalada en tu dispositivo.",
+    "installSwiish": "Instalar Swiish",
+    "installInstructions": "Para instalar esta app:\n\n",
+    "installChrome": "Chrome/Edge: Haz clic en el menú de tres puntos (⋮) en la barra de direcciones, luego selecciona \"Instalar app\" o \"Añadir a pantalla de inicio\".",
+    "installFirefox": "Firefox: Haz clic en el botón de menú, luego selecciona \"Instalar\" o \"Añadir a pantalla de inicio\".",
+    "installSafari": "Safari (iOS): Toca el botón Compartir, luego \"Añadir a pantalla de inicio\".",
+    "installGeneric": "Abre el menú de tu navegador y busca la opción \"Instalar app\" o \"Añadir a pantalla de inicio\".",
+    "installNote": "\n\nNota: El botón de instalación puede no estar disponible si la app no cumple con los requisitos de PWA (service worker, manifiesto válido, etc.).",
+    "cardNotFoundMsg": "Tarjeta no encontrada"
   },
   "settings": {
     "organisationSettings": "Configuración de la organización",
@@ -205,7 +249,11 @@
     "whenEnabledCustomLinks": "Cuando está activado, los usuarios pueden añadir enlaces personalizados a sus tarjetas. Cuando está desactivado, la sección de enlaces estará bloqueada.",
     "whenEnabledImageUploads": "Cuando está activado, los usuarios pueden subir sus propias imágenes. Cuando está desactivado, la subida de imágenes estará bloqueada.",
     "whenEnabledPrivacySettings": "Cuando está activado, los usuarios pueden modificar las opciones de privacidad. Cuando está desactivado, la configuración de privacidad estará bloqueada a los valores predeterminados.",
-    "whenEnabledThemeColors": "Cuando está activado, los usuarios pueden elegir colores del tema de la paleta. Cuando está desactivado, la sección de colores del tema estará bloqueada."
+    "whenEnabledThemeColors": "Cuando está activado, los usuarios pueden elegir colores del tema de la paleta. Cuando está desactivado, la sección de colores del tema estará bloqueada.",
+    "themeSwiishTitle": "Swiish",
+    "themeSwiishDesc": "Tema original de Swiish con colores y texturas.",
+    "themeMinimalTitle": "Minimal",
+    "themeMinimalDesc": "Blanco/negro, pocos grises, sin texturas, acentos con bordes."
   },
   "users": {
     "userManagement": "Gestión de usuarios",
@@ -261,9 +309,25 @@
     "cardsCount": "{{count}} tarjetas",
     "appliedToAllCards": "Aplicado a todas las tarjetas de esta organización",
     "saveSettings": "Guardar configuración",
-    "created": "¡Creado!",
+    "created": "Creado",
     "manageAllOrganisations": "Gestiona todas las organizaciones de esta plataforma",
-    "orgDeleted": "Organización eliminada"
+    "orgDeleted": "Organización eliminada",
+    "themeCustomisation": "Personalización del tema",
+    "themeCustomisationDesc": "Permitir a los usuarios elegir colores del tema de la paleta",
+    "imageCustomisation": "Personalización de imágenes",
+    "imageCustomisationDesc": "Permitir a los usuarios subir avatares y banners personalizados",
+    "linksCustomisation": "Personalización de enlaces",
+    "linksCustomisationDesc": "Permitir a los usuarios añadir enlaces personalizados a sus tarjetas",
+    "privacySettings": "Configuración de privacidad",
+    "privacySettingsDesc": "Permitir a los usuarios cambiar la configuración de privacidad en sus tarjetas",
+    "colorName": "Nombre del color",
+    "base": "Base",
+    "secondary": "Secundario",
+    "removeColor": "Eliminar color",
+    "orgSettingsTitle": "Configuración de la organización",
+    "deleteOrg": "Eliminar organización",
+    "user": "usuario",
+    "users": "usuarios"
   },
   "invitation": {
     "invitationAcceptance": "Aceptación de invitación",
@@ -276,7 +340,15 @@
     "joinOrganisation": "Unirse a {{orgName}}",
     "youveBeenInvited": "Has sido invitado a unirte a {{orgName}}",
     "creatingAccount": "Creando cuenta...",
-    "invitationInvalid": "Invitación inválida"
+    "invitationInvalid": "Invitación inválida",
+    "welcomeCreated": "¡Bienvenido! Tu cuenta ha sido creada.",
+    "notFoundOrExpired": "Invitación no encontrada o ha expirado",
+    "errorLoading": "Error al cargar la invitación",
+    "passwordRequired": "La contraseña es obligatoria",
+    "passwordMin8": "La contraseña debe tener al menos 8 caracteres",
+    "passwordsDoNotMatch": "Las contraseñas no coinciden",
+    "failedAccept": "Error al aceptar la invitación",
+    "errorAccepting": "Error al aceptar la invitación"
   },
   "errors": {
     "invalidUserUrl": "URL de usuario inválida",
@@ -465,7 +537,10 @@
     "linkUrl": "URL",
     "linkPlaceholder": "https://ejemplo.com",
     "noLinksYet": "Aún no hay enlaces personalizados.",
-    "customLinks": "Enlaces personalizados"
+    "customLinks": "Enlaces personalizados",
+    "dragToReorderAria": "Arrastra para reordenar",
+    "moveLinkUpAria": "Mover enlace arriba",
+    "moveLinkDownAria": "Mover enlace abajo"
   },
   "privacy": {
     "requireInteraction": "Requerir interacción",
@@ -473,7 +548,10 @@
     "clientSideObfuscation": "Ofuscación del lado del cliente",
     "clientSideObfuscationHelp": "Codifica el correo y teléfono en el HTML para dificultar el scraping. Nota: Los scrapers determinados aún pueden decodificar esto.",
     "blockRobots": "Bloquear motores de búsqueda",
-    "blockRobotsHelp": "Añade una etiqueta meta robots para evitar que los motores de búsqueda indexen esta tarjeta."
+    "blockRobotsHelp": "Añade una etiqueta meta robots para evitar que los motores de búsqueda indexen esta tarjeta.",
+    "requireInteractionLabel": "Requerir interacción",
+    "clientSideObfuscationLabel": "Ofuscación del lado del cliente",
+    "blockRobotsLabel": "Bloquear motores de búsqueda"
   },
   "modals": {
     "whatWouldYouLikeToDo": "¿Qué te gustaría hacer?",
@@ -539,7 +617,14 @@
     "addColor": "Añadir color",
     "editingColor": "Editando: {{colorName}}",
     "noColorsDefined": "Sin colores definidos. Añade un color para comenzar.",
-    "mustHaveAtLeastOne": "Debes tener al menos un color"
+    "mustHaveAtLeastOne": "Debes tener al menos un color",
+    "colorType": "Tipo de color",
+    "standardColors": "Colores estándar",
+    "customColours": "Colores personalizados",
+    "secondaryColor": "Color secundario (opcional)",
+    "leaveBlankAuto": "Dejar en blanco para usar color auto (complementario)",
+    "secondaryAutoLabel": "Secundario: Auto (complementario)",
+    "advancedStyles": "Avanzado: Estilos generados"
   },
   "social": {
     "linkedin": "LinkedIn",
@@ -547,7 +632,11 @@
     "instagram": "Instagram",
     "insta": "Insta",
     "github": "GitHub",
-    "website": "Web"
+    "website": "Web",
+    "web": "Web",
+    "x": "X",
+    "instaShort": "Insta",
+    "git": "Git"
   },
   "version": {
     "youAreOnLatest": "Estás en la última versión",
