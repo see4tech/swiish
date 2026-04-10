@@ -4,14 +4,14 @@ import DOMPurify from 'dompurify';
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import flags from 'country-flag-icons/react/3x2';
-import { 
-  Camera, Upload, Save, Share2, Phone, Mail, Globe, 
-  Linkedin, Twitter, Instagram, Github, Edit3, Eye, 
-  X, Check, User, MapPin, Briefcase, Lock, LogIn, AlertCircle, 
+import {
+  Camera, Upload, Save, Share2, Phone, Mail, Globe,
+  Linkedin, Twitter, Instagram, Github, Edit3, Eye,
+  X, Check, User, MapPin, Briefcase, Lock, LogIn, AlertCircle,
   Plus, Trash2, ArrowLeft, Users, ExternalLink, RefreshCw,
-  Download, FileText, Calendar, Video, Music, ShoppingCart, 
+  Download, FileText, Calendar, Video, Music, ShoppingCart,
   Link as LinkIcon, Youtube, Facebook, MessageCircle, Sun, Moon,
-  ChevronUp, ChevronDown, GripVertical, Settings
+  ChevronUp, ChevronDown, GripVertical, Settings, Shield
 } from 'lucide-react';
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -606,6 +606,7 @@ export default function App() {
   const [editingUserId, setEditingUserId] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [currentUserEmail, setCurrentUserEmail] = useState(null);
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [setupStatus, setSetupStatus] = useState(null);
   const [setupData, setSetupData] = useState({ organisationName: '', adminEmail: '', adminPassword: '' });
   const [isSettingUp, setIsSettingUp] = useState(false);
@@ -911,7 +912,19 @@ const [settings, setSettings] = useState({
           navigate('/login');
         }
       });
-    } else if (path === '/admin' || path === '/' || path === '/people') {
+    } else if (path === '/admin') {
+      fetchCsrfToken();
+      checkAuth().then((authResult) => {
+        if (!authResult.isAuthenticated) {
+          navigate('/login');
+        } else if (!authResult.userData?.isPlatformAdmin) {
+          navigate('/people');
+        } else {
+          setView('platform-admin');
+          document.title = 'Platform Admin';
+        }
+      }).catch(() => navigate('/login'));
+    } else if (path === '/' || path === '/people') {
       // Check demo mode status first (will be known from setup/status response)
       fetchCsrfToken();
       checkSetupStatus().then((status) => {
@@ -920,8 +933,8 @@ const [settings, setSettings] = useState({
 
         if (demoModeActive) {
           // Demo mode: skip setup, go directly to auth check
-          if (path === '/' || path === '/admin') {
-            // Redirect root/admin to /people (explicit redirect)
+          if (path === '/') {
+            // Redirect root to /people (explicit redirect)
             navigate('/people');
             return; // Let next effect run handle /people
           }
@@ -955,8 +968,8 @@ const [settings, setSettings] = useState({
           document.title = "Initial Setup";
         } else {
           // Setup complete, check authentication
-          if (path === '/' || path === '/admin') {
-            // Redirect root/admin to /people (explicit redirect)
+          if (path === '/') {
+            // Redirect root to /people (explicit redirect)
             navigate('/people');
             return; // Let next effect run handle /people
           }
@@ -1012,7 +1025,8 @@ const [settings, setSettings] = useState({
         setUserRole(userData.role);
         setCurrentUserId(userData.id);
         setCurrentUserEmail(userData.email);
-        
+        setIsPlatformAdmin(userData.isPlatformAdmin === true);
+
         // Fetch cards
         const res = await apiCall(`${API_ENDPOINT}/admin/cards`);
         if (res.ok) {
@@ -1020,21 +1034,24 @@ const [settings, setSettings] = useState({
           setCardList(list);
           setIsAuthenticated(true);
           fetchSettings();
-          
+
           return { isAuthenticated: true, userData, cardList: list };
         } else {
           setIsAuthenticated(false);
           setUserRole(null);
+          setIsPlatformAdmin(false);
           return { isAuthenticated: false, userData: null, cardList: [] };
         }
       } else {
         setIsAuthenticated(false);
         setUserRole(null);
+        setIsPlatformAdmin(false);
         return { isAuthenticated: false, userData: null, cardList: [] };
       }
     } catch (e) {
       setIsAuthenticated(false);
       setUserRole(null);
+      setIsPlatformAdmin(false);
       return { isAuthenticated: false, userData: null, cardList: [] };
     }
   };
@@ -1840,6 +1857,11 @@ const [settings, setSettings] = useState({
                      <Users className="w-4 h-4" /> Users
                    </button>
                  )}
+                 {isPlatformAdmin && (
+                   <button onClick={() => navigate('/admin')} className="px-3 py-2 md:px-4 md:py-3 rounded-full font-medium text-text-secondary dark:text-text-secondary-dark bg-card dark:bg-card-dark border border-border dark:border-border-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors whitespace-nowrap flex items-center gap-2 text-sm md:text-base">
+                     <Shield className="w-4 h-4" /> <span className="hidden sm:inline">Platform</span><span className="sm:hidden">Admin</span>
+                   </button>
+                 )}
                  <button onClick={handleCreateNew} className="bg-action dark:bg-action-dark text-white px-4 py-2 md:px-6 md:py-3 rounded-full font-bold flex items-center gap-2 hover:bg-action-hover dark:hover:bg-action-hover-dark transition-all whitespace-nowrap text-sm md:text-base">
                    <Plus className="w-4 h-4 md:w-5 md:h-5" /> New Person
                  </button>
@@ -2248,6 +2270,18 @@ const [settings, setSettings] = useState({
           <Modal isOpen={modal.isOpen} onClose={closeModal} type={modal.type} title={modal.title} message={modal.message} onConfirm={modal.onConfirm} confirmText={modal.confirmText} cancelText={modal.cancelText} />
         </>
       )}
+      {view === 'platform-admin' && (
+        <>
+          <PlatformAdminView
+            apiCall={apiCall}
+            csrfToken={csrfToken}
+            onBack={() => { navigate('/people'); }}
+            showAlert={showAlert}
+            showConfirm={showConfirm}
+          />
+          <Modal isOpen={modal.isOpen} onClose={closeModal} type={modal.type} title={modal.title} message={modal.message} onConfirm={modal.onConfirm} confirmText={modal.confirmText} cancelText={modal.cancelText} />
+        </>
+      )}
     </>
   );
 
@@ -2263,6 +2297,7 @@ const [settings, setSettings] = useState({
         <Route path="/settings" element={renderAdminViews()} />
         <Route path="/users" element={renderAdminViews()} />
         <Route path="/cards" element={renderAdminViews()} />
+        <Route path="/admin" element={renderAdminViews()} />
         <Route path="/" element={renderAdminViews()} />
         {/* Invitation acceptance route - must come before public card routes */}
         <Route path="/invite/:token" element={
@@ -5357,6 +5392,231 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
           <img src="/graphics/Swiish_Logo_DarkBg.svg" alt="Swiish" className="h-4 w-auto hidden dark:block swiish-logo" />
         </div>
       </div>
+    </div>
+  );
+}
+
+function PlatformAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm }) {
+  const [organisations, setOrganisations] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newOrg, setNewOrg] = useState({ organisationName: '', ownerEmail: '', ownerPassword: '' });
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  useEffect(() => {
+    fetchOrganisations();
+  }, []);
+
+  const fetchOrganisations = async () => {
+    setIsLoading(true);
+    try {
+      const res = await apiCall(`${API_ENDPOINT}/platform/organisations`);
+      if (res.ok) {
+        const data = await res.json();
+        setOrganisations(data.organisations);
+      } else {
+        if (showAlert) showAlert('Failed to load organisations', 'error');
+      }
+    } catch (e) {
+      if (showAlert) showAlert('Error loading organisations', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCreateOrg = async () => {
+    if (!newOrg.organisationName || !newOrg.ownerEmail || !newOrg.ownerPassword) {
+      if (showAlert) showAlert('All fields are required', 'error');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const res = await apiCall(`${API_ENDPOINT}/platform/organisations`, {
+        method: 'POST',
+        body: JSON.stringify(newOrg)
+      });
+      if (res.ok) {
+        setIsSuccess(true);
+        setTimeout(() => setIsSuccess(false), 2000);
+        setShowCreateModal(false);
+        setNewOrg({ organisationName: '', ownerEmail: '', ownerPassword: '' });
+        fetchOrganisations();
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        if (showAlert) showAlert(errorData.error || 'Failed to create organisation', 'error');
+      }
+    } catch (e) {
+      if (showAlert) showAlert('Error creating organisation', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteOrg = async (orgId, orgName) => {
+    if (showConfirm) {
+      showConfirm(
+        `Are you sure you want to permanently delete "${orgName}"? This will delete the organisation, all its users, and all their cards. This action cannot be undone.`,
+        async () => {
+          try {
+            const res = await apiCall(`${API_ENDPOINT}/platform/organisations/${orgId}`, {
+              method: 'DELETE'
+            });
+            if (res.ok) {
+              if (showAlert) showAlert('Organisation deleted', 'success');
+              fetchOrganisations();
+            } else {
+              const errorData = await res.json().catch(() => ({}));
+              if (showAlert) showAlert(errorData.error || 'Failed to delete organisation', 'error');
+            }
+          } catch (e) {
+            if (showAlert) showAlert('Error deleting organisation', 'error');
+          }
+        },
+        'Delete Organisation',
+        'Delete',
+        'Cancel'
+      );
+    }
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '—';
+    return new Date(dateStr).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  };
+
+  return (
+    <div className="min-h-screen bg-main dark:bg-main-dark bg-main-texture flex flex-col">
+      <div className="w-full bg-card dark:bg-card-dark border-b border-border dark:border-border-dark">
+        <div className="p-6 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button onClick={onBack} className="p-2 hover:bg-surface dark:hover:bg-surface-dark rounded-full text-text-muted dark:text-text-muted-dark">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div>
+              <h1 className="text-xl font-bold text-text-primary dark:text-text-primary-dark">Platform Administration</h1>
+              <p className="text-sm text-text-secondary dark:text-text-muted-dark">Manage all organisations</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-4 py-2 bg-action dark:bg-action-dark text-white rounded-full text-sm font-bold flex items-center gap-2 hover:bg-action-hover dark:hover:bg-action-hover-dark"
+          >
+            <Plus className="w-4 h-4" /> Create Organisation
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-1 p-6 max-w-6xl mx-auto w-full">
+        {isLoading ? (
+          <div className="text-center py-12">
+            <div className="text-text-secondary dark:text-text-muted-dark">Loading organisations...</div>
+          </div>
+        ) : (
+          <div className="bg-card dark:bg-card-dark rounded-input shadow-sm border border-border dark:border-border-dark overflow-hidden">
+            <div className="p-6 border-b border-border dark:border-border-dark">
+              <h2 className="text-lg font-semibold text-text-primary dark:text-text-primary-dark">Organisations</h2>
+              <p className="text-sm text-text-secondary dark:text-text-muted-dark mt-1">{organisations.length} organisation{organisations.length !== 1 ? 's' : ''} on this platform</p>
+            </div>
+            <div className="divide-y divide-slate-200 dark:divide-slate-700">
+              {organisations.length === 0 ? (
+                <div className="p-6 text-center text-text-muted dark:text-text-muted-dark">
+                  No organisations found
+                </div>
+              ) : (
+                organisations.map((org) => (
+                  <div key={org.id} className="p-6 flex items-center justify-between hover:bg-surface dark:hover:bg-surface-dark/50 transition-colors">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
+                          <Shield className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                        </div>
+                        <div>
+                          <div className="font-medium text-text-primary dark:text-text-primary-dark">{org.name}</div>
+                          <div className="text-sm text-text-muted dark:text-text-muted-dark">/{org.slug} &middot; {org.user_count} user{org.user_count !== 1 ? 's' : ''} &middot; Created {formatDate(org.created_at)}</div>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteOrg(org.id, org.name)}
+                      className="p-2 text-text-muted dark:text-text-muted-dark hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+                      title="Delete organisation"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-card dark:bg-card-dark rounded-card shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-text-primary dark:text-text-primary-dark">Create Organisation</h2>
+              <button onClick={() => setShowCreateModal(false)} className="p-2 hover:bg-surface dark:hover:bg-surface-dark rounded-full text-text-muted dark:text-text-muted-dark">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-text-secondary dark:text-text-secondary-dark mb-1">Organisation Name</label>
+                <input
+                  type="text"
+                  value={newOrg.organisationName}
+                  onChange={(e) => setNewOrg({ ...newOrg, organisationName: e.target.value })}
+                  className="w-full px-3 py-2 bg-main dark:bg-main-dark border border-border dark:border-border-dark rounded-input text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-action dark:focus:ring-action-dark"
+                  placeholder="Acme Corp"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-text-secondary dark:text-text-secondary-dark mb-1">Owner Email</label>
+                <input
+                  type="email"
+                  value={newOrg.ownerEmail}
+                  onChange={(e) => setNewOrg({ ...newOrg, ownerEmail: e.target.value })}
+                  className="w-full px-3 py-2 bg-main dark:bg-main-dark border border-border dark:border-border-dark rounded-input text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-action dark:focus:ring-action-dark"
+                  placeholder="owner@example.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-text-secondary dark:text-text-secondary-dark mb-1">Owner Password</label>
+                <input
+                  type="password"
+                  value={newOrg.ownerPassword}
+                  onChange={(e) => setNewOrg({ ...newOrg, ownerPassword: e.target.value })}
+                  className="w-full px-3 py-2 bg-main dark:bg-main-dark border border-border dark:border-border-dark rounded-input text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-action dark:focus:ring-action-dark"
+                  placeholder="Min. 8 characters"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="flex-1 px-4 py-2 border border-border dark:border-border-dark rounded-full text-text-secondary dark:text-text-secondary-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors text-sm font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateOrg}
+                disabled={isSaving}
+                className="flex-1 px-4 py-2 bg-action dark:bg-action-dark text-white rounded-full text-sm font-bold hover:bg-action-hover dark:hover:bg-action-hover-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isSaving ? (
+                  <><RefreshCw className="w-4 h-4 animate-spin" /> Creating...</>
+                ) : isSuccess ? (
+                  <><Check className="w-4 h-4" /> Created!</>
+                ) : (
+                  'Create Organisation'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
