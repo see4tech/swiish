@@ -3773,16 +3773,16 @@ app.delete('/api/superadmin/users/:userId', requireAuth, requireSuperAdmin, apiL
 // GET /api/superadmin/users/:userId/settings — org settings for any user (for editor)
 app.get('/api/superadmin/users/:userId/settings', requireAuth, requireSuperAdmin, apiLimiter, (req, res, next) => {
   const { userId } = req.params;
-  db.get('SELECT u.organisation_id, o.name AS org_name FROM users u LEFT JOIN organisations o ON o.id = u.organisation_id WHERE u.id = ? AND u.is_super_admin = 0', [userId], (err, user) => {
+  db.get('SELECT u.organisation_id, u.email, o.name AS org_name FROM users u LEFT JOIN organisations o ON o.id = u.organisation_id WHERE u.id = ? AND u.is_super_admin = 0', [userId], (err, user) => {
     if (err) return next(err);
     if (!user) return res.status(404).json({ error: 'errors.userNotFound' });
-    if (!user.organisation_id) return res.json({});
+    if (!user.organisation_id) return res.json({ _userEmail: user.email });
     getOrganizationSettings(user.organisation_id, (err, orgSettings) => {
       if (err) return next(err);
-      // Ensure default_organisation is always populated (fall back to org table name)
       if (!orgSettings.default_organisation && user.org_name) {
         orgSettings.default_organisation = user.org_name;
       }
+      orgSettings._userEmail = user.email;
       res.json(orgSettings);
     });
   });

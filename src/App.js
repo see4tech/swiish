@@ -1560,35 +1560,38 @@ const [settings, setSettings] = useState({
       return;
     }
     // Store userId for this new card if provided
-    const proceed = (effectiveSettings) => {
+    const proceed = (effectiveSettings, userEmail) => {
       setCreateCardModal({ isOpen: false, slug: '', userId: null });
       setCurrentSlug(slug);
-      setData(getDefaultTemplate(effectiveSettings));
+      const template = getDefaultTemplate(effectiveSettings);
+      if (userEmail) template.contact.email = userEmail;
+      setData(template);
       setView('admin-editor');
       navigate(`/people/edit/${slug}`);
     };
 
     if (createCardModal.userId) {
       setTargetUserIdForNewCard(createCardModal.userId);
-      // Super admin: fetch org settings for the target user so the editor shows the right org
+      // Super admin: fetch org settings + email for the target user
       if (isSuperAdmin) {
         apiCall(`${API_ENDPOINT}/superadmin/users/${createCardModal.userId}/settings`)
           .then(r => r.ok ? r.json() : null)
           .then(s => {
             const override = s || null;
+            const userEmail = s?._userEmail || null;
             setEditorSettingsOverride(override);
-            proceed(override || settings);
+            proceed(override || settings, userEmail);
           })
           .catch(() => {
             setEditorSettingsOverride(null);
-            proceed(settings);
+            proceed(settings, null);
           });
         return; // wait for async fetch
       }
     } else {
       setEditorSettingsOverride(null);
     }
-    proceed(settings);
+    proceed(settings, currentUserEmail);
   };
 
   const handleCreateCardCancel = () => {
@@ -1813,7 +1816,10 @@ const [settings, setSettings] = useState({
           setEditorSettingsOverride(null);
           setIsSuccess(true);
           fetchCardList();
-          setTimeout(() => setIsSuccess(false), 2000);
+          setTimeout(() => {
+            setIsSuccess(false);
+            navigate(`/${currentSlug}`);
+          }, 1200);
         } else {
           showAlert(t('errors.saveFailed'), 'error');
         }
@@ -2401,7 +2407,11 @@ const [settings, setSettings] = useState({
           <EditorView
             data={data}
             setData={setData}
-            onBack={() => { navigate('/people'); fetchCardList(); }}
+            onBack={() => {
+              const cardExists = cardList.some(c => c.slug === currentSlug);
+              if (cardExists) { navigate(`/${currentSlug}`); }
+              else { navigate('/people'); fetchCardList(); }
+            }}
             onSave={handleSave}
             slug={currentSlug}
             settings={editorSettingsOverride || settings}
