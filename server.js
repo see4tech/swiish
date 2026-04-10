@@ -1516,20 +1516,25 @@ app.post('/api/cards/:slug', requireAuth, apiLimiter, csrfProtection, [
     }
   };
 
-  // Ensure user is authenticated
-  if (!req.user.id || !req.user.organisationId) {
+  // Ensure user is authenticated (super admins have no org but are still valid)
+  if (!req.user.id) {
     return res.status(401).json({ error: 'errors.unauthorized' });
   }
-  
+  if (!req.user.organisationId && !req.user.isSuperAdmin) {
+    return res.status(401).json({ error: 'errors.unauthorized' });
+  }
+
   // Determine target userId for card creation
   // Owners can create cards for other users in their organization
+  // Super admins can create cards for any user
   // Members can only create cards for themselves
   let targetUserId = req.user.id; // Default to current user
-  
-  // Helper function to proceed with card save using determined targetUserId
-  const proceedWithCardSave = (finalTargetUserId) => {
+
+  // Helper function to proceed with card save using determined targetUserId + their org
+  const proceedWithCardSave = (finalTargetUserId, orgIdOverride) => {
+    const effectiveOrgId = orgIdOverride || req.user.organisationId;
     // Get organization settings to enforce policies
-    getOrganizationSettings(req.user.organisationId, (err, orgSettings) => {
+    getOrganizationSettings(effectiveOrgId, (err, orgSettings) => {
       if (err) return next(err);
     
     // Enforce default_organisation - override user's company field
@@ -1706,23 +1711,24 @@ app.post('/api/cards/:slug', requireAuth, apiLimiter, csrfProtection, [
   };
   
   // Determine target user and proceed
-  if (req.body.userId && req.user.role === 'owner') {
-    // Owner wants to create card for another user - verify they're in same organization
+  if (req.body.userId && (req.user.role === 'owner' || req.user.isSuperAdmin)) {
+    // Owner/super admin wants to create card for another user
     db.get("SELECT id, organisation_id FROM users WHERE id = ?", [req.body.userId], (err, targetUser) => {
       if (err) return next(err);
       if (!targetUser) {
         return res.status(404).json({ error: 'errors.targetUserNotFound' });
       }
-      if (targetUser.organisation_id !== req.user.organisationId) {
+      // Org owners must be in same org; super admins can target any org
+      if (!req.user.isSuperAdmin && targetUser.organisation_id !== req.user.organisationId) {
         return res.status(403).json({ error: 'errors.cannotCreateCardOutsideOrg' });
       }
-      // Valid target user, proceed with card creation
-      proceedWithCardSave(req.body.userId);
+      // Use target user's org for settings enforcement
+      proceedWithCardSave(req.body.userId, targetUser.organisation_id);
     });
   } else {
     // Member provided userId - ignore it, they can only create for themselves
     // Or no userId provided - use current user
-    proceedWithCardSave(req.user.id);
+    proceedWithCardSave(req.user.id, req.user.organisationId);
   }
 });
 
@@ -3747,6 +3753,20 @@ app.delete('/api/superadmin/users/:userId', requireAuth, requireSuperAdmin, apiL
   } catch (err) {
     next(err);
   }
+});
+
+// GET /api/superadmin/users/:userId/settings — org settings for any user (for editor)
+app.get('/api/superadmin/users/:userId/settings', requireAuth, requireSuperAdmin, apiLimiter, (req, res, next) => {
+  const { userId } = req.params;
+  db.get('SELECT organisation_id FROM users WHERE id = ? AND is_super_admin = 0', [userId], (err, user) => {
+    if (err) return next(err);
+    if (!user) return res.status(404).json({ error: 'errors.userNotFound' });
+    if (!user.organisation_id) return res.json({});
+    getOrganizationSettings(user.organisation_id, (err, orgSettings) => {
+      if (err) return next(err);
+      res.json(orgSettings);
+    });
+  });
 });
 
 // POST /api/superadmin/users — create a user in any org

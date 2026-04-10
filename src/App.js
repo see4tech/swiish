@@ -673,6 +673,7 @@ export default function App() {
   const [modal, setModal] = useState({ isOpen: false, type: 'info', title: '', message: '', onConfirm: null, onClose: null, confirmText: 'OK', cancelText: 'Cancel' });
   const [createCardModal, setCreateCardModal] = useState({ isOpen: false, slug: '', userId: null });
   const [targetUserIdForNewCard, setTargetUserIdForNewCard] = useState(null);
+  const [editorSettingsOverride, setEditorSettingsOverride] = useState(null);
   const [actionSelectionModal, setActionSelectionModal] = useState({ isOpen: false });
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showCreateUserModal, setShowCreateUserModal] = useState(false);
@@ -1560,10 +1561,19 @@ const [settings, setSettings] = useState({
     // Store userId for this new card if provided
     if (createCardModal.userId) {
       setTargetUserIdForNewCard(createCardModal.userId);
+      // Super admin: fetch org settings for the target user so the editor shows the right org
+      if (isSuperAdmin) {
+        apiCall(`${API_ENDPOINT}/superadmin/users/${createCardModal.userId}/settings`)
+          .then(r => r.ok ? r.json() : null)
+          .then(s => setEditorSettingsOverride(s || null))
+          .catch(() => setEditorSettingsOverride(null));
+      }
+    } else {
+      setEditorSettingsOverride(null);
     }
     setCreateCardModal({ isOpen: false, slug: '', userId: null });
     setCurrentSlug(slug);
-    setData(getDefaultTemplate(settings)); 
+    setData(getDefaultTemplate(settings));
     setView('admin-editor');
     // Navigate to editor route, just like handleEdit does
     navigate(`/people/edit/${slug}`);
@@ -1786,8 +1796,9 @@ const [settings, setSettings] = useState({
         }
 
         if (res.ok) {
-          // Clear targetUserIdForNewCard after successful save
+          // Clear targetUserIdForNewCard and editor override after successful save
           setTargetUserIdForNewCard(null);
+          setEditorSettingsOverride(null);
           setIsSuccess(true);
           fetchCardList();
           setTimeout(() => setIsSuccess(false), 2000);
@@ -2375,13 +2386,13 @@ const [settings, setSettings] = useState({
       )}
       {view === 'admin-editor' && (
         <>
-          <EditorView 
-            data={data} 
-            setData={setData} 
-            onBack={() => { navigate('/people'); fetchCardList(); }} 
+          <EditorView
+            data={data}
+            setData={setData}
+            onBack={() => { navigate('/people'); fetchCardList(); }}
             onSave={handleSave}
             slug={currentSlug}
-            settings={settings}
+            settings={editorSettingsOverride || settings}
             csrfToken={csrfToken}
             showAlert={showAlert}
             darkMode={darkMode}
