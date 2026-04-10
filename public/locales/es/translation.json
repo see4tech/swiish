@@ -8,6 +8,7 @@
     "create": "Crear",
     "creating": "Creando...",
     "edit": "Editar",
+    "done": "Listo",
     "close": "Cerrar",
     "back": "Volver",
     "loading": "Cargando...",
@@ -45,6 +46,7 @@
     "adminDashboard": "Panel de administración",
     "platformAdmin": "Administración de plataforma",
     "swiishCard": "Tarjeta Swiish",
+    "cardTitleWithName": "{{name}} - Tarjeta Swiish",
     "cardNotFoundTitle": "Tarjeta no encontrada",
     "errorLoadingCard": "Error al cargar la tarjeta",
     "switchToEnglish": "Switch to English",
@@ -257,7 +259,16 @@
     "themeSwiishTitle": "Swiish",
     "themeSwiishDesc": "Tema original de Swiish con colores y texturas.",
     "themeMinimalTitle": "Minimal",
-    "themeMinimalDesc": "Blanco/negro, pocos grises, sin texturas, acentos con bordes."
+    "themeMinimalDesc": "Blanco/negro, pocos grises, sin texturas, acentos con bordes.",
+    "defaultOrg": "Organización predeterminada",
+    "colorEffects": "Efectos de color",
+    "previewTextLabel": "Texto",
+    "previewText": "Texto de ejemplo",
+    "previewLinkLabel": "Enlace",
+    "previewLink": "Enlace de ejemplo",
+    "previewButtonLabel": "Botón",
+    "previewButton": "Botón de ejemplo",
+    "previewGradientLabel": "Fondo degradado"
   },
   "users": {
     "userManagement": "Gestión de usuarios",
@@ -294,7 +305,12 @@
     "role": "Rol",
     "roleUpdated": "Rol actualizado",
     "sent": "¡Enviado!",
-    "userDeleted": "Usuario eliminado"
+    "userDeleted": "Usuario eliminado",
+    "joined": "Se unió el {{date}}",
+    "statusSent": "Enviada",
+    "statusFailed": "Fallida",
+    "statusPending": "Pendiente",
+    "statusExpired": "Expirada"
   },
   "platform": {
     "platformAdmin": "Administración de plataforma",
@@ -331,7 +347,10 @@
     "orgSettingsTitle": "Configuración de la organización",
     "deleteOrg": "Eliminar organización",
     "user": "usuario",
-    "users": "usuarios"
+    "users": "usuarios",
+    "orgCount": "{{count}} organizaciones en esta plataforma",
+    "orgCount_one": "{{count}} organización en esta plataforma",
+    "orgCount_other": "{{count}} organizaciones en esta plataforma"
   },
   "invitation": {
     "invitationAcceptance": "Aceptación de invitación",
@@ -352,7 +371,17 @@
     "passwordMin8": "La contraseña debe tener al menos 8 caracteres",
     "passwordsDoNotMatch": "Las contraseñas no coinciden",
     "failedAccept": "Error al aceptar la invitación",
-    "errorAccepting": "Error al aceptar la invitación"
+    "errorAccepting": "Error al aceptar la invitación",
+    "invitedAsRole": "Has sido invitado/a a unirte como {{role}}"
+  },
+  "superAdmin": {
+    "title": "Super Administrador",
+    "navLabel": "Super Admin",
+    "allUsers": "Todos los usuarios",
+    "orgColumn": "Organización",
+    "noUsers": "No se encontraron usuarios",
+    "description": "Administrar usuarios en todas las organizaciones",
+    "noOrganisation": "Sin organización"
   },
   "errors": {
     "invalidUserUrl": "URL de usuario inválida",
@@ -629,7 +658,13 @@
     "secondaryColor": "Color secundario (opcional)",
     "leaveBlankAuto": "Dejar en blanco para usar color auto (complementario)",
     "secondaryAutoLabel": "Secundario: Auto (complementario)",
-    "advancedStyles": "Avanzado: Estilos generados"
+    "advancedStyles": "Avanzado: Estilos generados",
+    "gradientStyle": "Estilo degradado",
+    "buttonStyle": "Estilo de botón",
+    "linkStyle": "Estilo de enlace",
+    "textStyle": "Estilo de texto",
+    "standardType": "Estándar",
+    "secondaryAuto": "Secundario: Auto"
   },
   "social": {
     "linkedin": "LinkedIn",

@@ -12,7 +12,7 @@ import {
   Plus, Trash2, ArrowLeft, Users, ExternalLink, RefreshCw,
   Download, FileText, Calendar, Video, Music, ShoppingCart,
   Link as LinkIcon, Youtube, Facebook, MessageCircle, Sun, Moon,
-  ChevronUp, ChevronDown, GripVertical, Settings, Shield
+  ChevronUp, ChevronDown, GripVertical, Settings, Shield, ShieldAlert
 } from 'lucide-react';
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -682,6 +682,7 @@ export default function App() {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [currentUserEmail, setCurrentUserEmail] = useState(null);
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [setupStatus, setSetupStatus] = useState(null);
   const [setupData, setSetupData] = useState({ organisationName: '', adminEmail: '', adminPassword: '' });
   const [isSettingUp, setIsSettingUp] = useState(false);
@@ -996,6 +997,15 @@ const [settings, setSettings] = useState({
           navigate('/login');
         }
       });
+    } else if (path === '/superadmin') {
+      setView('super-admin');
+      document.title = t('superAdmin.title');
+      fetchCsrfToken();
+      checkAuth().then((authResult) => {
+        if (!authResult.isAuthenticated) {
+          navigate('/login');
+        }
+      });
     } else if (path === '/' || path === '/people') {
       // Check demo mode status first (will be known from setup/status response)
       fetchCsrfToken();
@@ -1098,6 +1108,7 @@ const [settings, setSettings] = useState({
         setCurrentUserId(userData.id);
         setCurrentUserEmail(userData.email);
         setIsPlatformAdmin(userData.isPlatformAdmin === true);
+        setIsSuperAdmin(userData.isSuperAdmin === true);
 
         // Sync language preference from server
         const userLang = userData.language || userData.orgDefaultLanguage || 'en';
@@ -1118,18 +1129,21 @@ const [settings, setSettings] = useState({
           setIsAuthenticated(false);
           setUserRole(null);
           setIsPlatformAdmin(false);
+          setIsSuperAdmin(false);
           return { isAuthenticated: false, userData: null, cardList: [] };
         }
       } else {
         setIsAuthenticated(false);
         setUserRole(null);
         setIsPlatformAdmin(false);
+        setIsSuperAdmin(false);
         return { isAuthenticated: false, userData: null, cardList: [] };
       }
     } catch (e) {
       setIsAuthenticated(false);
       setUserRole(null);
       setIsPlatformAdmin(false);
+      setIsSuperAdmin(false);
       return { isAuthenticated: false, userData: null, cardList: [] };
     }
   };
@@ -1151,7 +1165,7 @@ const [settings, setSettings] = useState({
           privacy: json.privacy || defaultTemplate.privacy
         });
         setView('public-card');
-        document.title = json.personal?.name ? `${json.personal.name} - Swiish Card` : t("common.swiishCard");
+        document.title = json.personal?.name ? t("common.cardTitleWithName", { name: json.personal.name }) : t("common.swiishCard");
       } else {
         setError(t('card.cardNotFoundMsg'));
         setView('404');
@@ -1941,6 +1955,11 @@ const [settings, setSettings] = useState({
                      <Shield className="w-4 h-4" /> <span className="hidden sm:inline">{t('dashboard.platformAdminNav')}</span><span className="sm:hidden">{t('dashboard.adminNav')}</span>
                    </button>
                  )}
+                 {isSuperAdmin && (
+                   <button onClick={() => { setView('super-admin'); document.title = t('superAdmin.title'); navigate('/superadmin'); }} className="px-3 py-2 md:px-4 md:py-3 rounded-full font-medium text-white bg-purple-600 dark:bg-purple-700 border border-purple-700 dark:border-purple-600 hover:bg-purple-700 dark:hover:bg-purple-600 transition-colors whitespace-nowrap flex items-center gap-2 text-sm md:text-base">
+                     <ShieldAlert className="w-4 h-4" /> <span className="hidden sm:inline">{t('superAdmin.navLabel')}</span><span className="sm:hidden">{t('superAdmin.navLabel')}</span>
+                   </button>
+                 )}
                  <button onClick={handleCreateNew} className="bg-action dark:bg-action-dark text-white px-4 py-2 md:px-6 md:py-3 rounded-full font-bold flex items-center gap-2 hover:bg-action-hover dark:hover:bg-action-hover-dark transition-all whitespace-nowrap text-sm md:text-base">
                    <Plus className="w-4 h-4 md:w-5 md:h-5" /> {t('dashboard.newPerson')}
                  </button>
@@ -2039,16 +2058,16 @@ const [settings, setSettings] = useState({
                                     <div className="space-y-0.5">
                                       {card.shortCode && (
                                         <div className="text-[10px] text-text-muted-subtle dark:text-text-muted-dark font-mono truncate" title={t("card.shortCodeUrl")}>
-                                          <span className="text-text-muted-subtle dark:text-text-muted-dark">Short:</span> /{card.shortCode}
+                                          <span className="text-text-muted-subtle dark:text-text-muted-dark">{t('card.shortLabel')}:</span> /{card.shortCode}
                                         </div>
                                       )}
                                       {card.orgSlug && card.slug ? (
                                         <div className="text-[10px] text-text-muted-subtle dark:text-text-muted-dark font-mono truncate" title={t("card.orgScopedUrl")}>
-                                          <span className="text-text-muted-subtle dark:text-text-muted-dark">URL:</span> /{card.orgSlug}/{card.slug}
+                                          <span className="text-text-muted-subtle dark:text-text-muted-dark">{t('card.urlLabel')}:</span> /{card.orgSlug}/{card.slug}
                                         </div>
                                       ) : card.slug ? (
                                         <div className="text-[10px] text-text-muted-subtle dark:text-text-muted-dark font-mono truncate" title={t("card.legacyUrl")}>
-                                          <span className="text-text-muted-subtle dark:text-text-muted-dark">URL:</span> /{card.slug}
+                                          <span className="text-text-muted-subtle dark:text-text-muted-dark">{t('card.urlLabel')}:</span> /{card.slug}
                                         </div>
                                       ) : null}
                                     </div>
@@ -2361,6 +2380,18 @@ const [settings, setSettings] = useState({
           <Modal isOpen={modal.isOpen} onClose={closeModal} type={modal.type} title={modal.title} message={modal.message} onConfirm={modal.onConfirm} confirmText={modal.confirmText} cancelText={modal.cancelText} />
         </>
       )}
+      {view === 'super-admin' && (
+        <>
+          <SuperAdminView
+            apiCall={apiCall}
+            csrfToken={csrfToken}
+            onBack={() => { navigate('/people'); }}
+            showAlert={showAlert}
+            showConfirm={showConfirm}
+          />
+          <Modal isOpen={modal.isOpen} onClose={closeModal} type={modal.type} title={modal.title} message={modal.message} onConfirm={modal.onConfirm} confirmText={modal.confirmText} cancelText={modal.cancelText} />
+        </>
+      )}
     </>
   );
 
@@ -2377,6 +2408,7 @@ const [settings, setSettings] = useState({
         <Route path="/users" element={renderAdminViews()} />
         <Route path="/cards" element={renderAdminViews()} />
         <Route path="/admin" element={renderAdminViews()} />
+        <Route path="/superadmin" element={renderAdminViews()} />
         <Route path="/" element={renderAdminViews()} />
         {/* Invitation acceptance route - must come before public card routes */}
         <Route path="/invite/:token" element={
@@ -4309,7 +4341,7 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
                                     {t('common.member')}
                                   </span>
                                 )}
-                                <span className="ml-2">Joined {new Date(user.created_at).toLocaleDateString()}</span>
+                                <span className="ml-2">{t('users.joined', { date: new Date(user.created_at).toLocaleDateString() })}</span>
                               </div>
                             </div>
                           </div>
@@ -4324,8 +4356,8 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
                                 onChange={(e) => handleUpdateRole(user.id, e.target.value)}
                                 className="px-3 py-1.5 text-sm rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark"
                               >
-                                <option value="member">Member</option>
-                                <option value="owner">Owner</option>
+                                <option value="member">{t('common.member')}</option>
+                                <option value="owner">{t('common.owner')}</option>
                               </select>
                               <button
                                 onClick={() => setEditingUserId(null)}
@@ -4389,10 +4421,10 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
                                 inv.status === 'expired' ? 'bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-300' :
                                 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
                               }`}>
-                                {inv.status === 'sent' && 'Sent'}
-                                {inv.status === 'failed' && 'Failed'}
-                                {inv.status === 'pending' && 'Pending'}
-                                {inv.status === 'expired' && 'Expired'}
+                                {inv.status === 'sent' && t('users.statusSent')}
+                                {inv.status === 'failed' && t('users.statusFailed')}
+                                {inv.status === 'pending' && t('users.statusPending')}
+                                {inv.status === 'expired' && t('users.statusExpired')}
                               </span>
                               {inv.role === 'owner' ? (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-badge text-xs font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300">
@@ -4471,8 +4503,8 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
                   onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark focus:border-action dark:focus:border-action-dark"
                 >
-                  <option value="member">Member</option>
-                  <option value="owner">Owner</option>
+                  <option value="member">{t('common.member')}</option>
+                  <option value="owner">{t('common.owner')}</option>
                 </select>
               </div>
             </div>
@@ -4529,8 +4561,8 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
                   onChange={(e) => setNewInvitation({ ...newInvitation, role: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark focus:border-action dark:focus:border-action-dark"
                 >
-                  <option value="member">Member</option>
-                  <option value="owner">Owner</option>
+                  <option value="member">{t('common.member')}</option>
+                  <option value="owner">{t('common.owner')}</option>
                 </select>
               </div>
             </div>
@@ -4713,9 +4745,9 @@ function InvitationAcceptance({ apiCall, showAlert, API_ENDPOINT }) {
     <div className="flex items-center justify-center min-h-screen bg-bg dark:bg-bg-dark p-4">
       <div className="max-w-md w-full">
         <div className="bg-card dark:bg-card-dark rounded-card shadow-lg p-8 mb-4">
-          <h1 className="text-2xl font-bold text-text-primary dark:text-text-primary-dark mb-2">Join {invitation.organisationName}</h1>
+          <h1 className="text-2xl font-bold text-text-primary dark:text-text-primary-dark mb-2">{t('invitation.joinOrganisation', { orgName: invitation.organisationName })}</h1>
           <p className="text-text-secondary dark:text-text-secondary-dark mb-6">
-            You've been invited to join as a <span className="font-semibold capitalize">{invitation.role}</span>
+            {t('invitation.invitedAsRole', { role: invitation.role.charAt(0).toUpperCase() + invitation.role.slice(1) })}
           </p>
 
           <form onSubmit={handleAcceptInvitation} className="space-y-4">
@@ -5376,13 +5408,13 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
                     {editingColorIndex === index ? (
                       <div className="space-y-4">
                         <div className="flex justify-between items-center">
-                          <h4 className="font-medium text-text-primary dark:text-text-primary-dark">Editing: {color.name}</h4>
+                          <h4 className="font-medium text-text-primary dark:text-text-primary-dark">{t('colors.editingColor', { colorName: color.name })}</h4>
                           <div className="flex gap-2">
                             <button
                               onClick={() => setEditingColorIndex(null)}
                               className="px-3 py-1 text-sm bg-card dark:bg-surface-dark border border-border dark:border-border-dark rounded-button hover:bg-surface dark:hover:bg-surface-dark text-text-primary dark:text-text-primary-dark"
                             >
-                              Done
+                              {t('common.done')}
                             </button>
                             <button
                               onClick={() => removeColor(index)}
@@ -5492,10 +5524,10 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
                             {t('colors.advancedStyles')}
                           </summary>
                           <div className="bg-card dark:bg-surface-dark p-3 rounded-container border border-border dark:border-border-dark space-y-2 text-xs font-mono">
-                            <div><span className="text-text-muted dark:text-text-muted-dark">Gradient Style:</span> <span className="text-text-primary dark:text-text-primary-dark">{color.gradientStyle || 'N/A'}</span></div>
-                            <div><span className="text-text-muted dark:text-text-muted-dark">Button Style:</span> <span className="text-text-primary dark:text-text-primary-dark">{color.buttonStyle || 'N/A'}</span></div>
-                            <div><span className="text-text-muted dark:text-text-muted-dark">Link Style:</span> <span className="text-text-primary dark:text-text-primary-dark">{color.linkStyle || 'N/A'}</span></div>
-                            <div><span className="text-text-muted dark:text-text-muted-dark">Text Style:</span> <span className="text-text-primary dark:text-text-primary-dark">{color.textStyle || 'N/A'}</span></div>
+                            <div><span className="text-text-muted dark:text-text-muted-dark">{t('colors.gradientStyle')}:</span> <span className="text-text-primary dark:text-text-primary-dark">{color.gradientStyle || '—'}</span></div>
+                            <div><span className="text-text-muted dark:text-text-muted-dark">{t('colors.buttonStyle')}:</span> <span className="text-text-primary dark:text-text-primary-dark">{color.buttonStyle || '—'}</span></div>
+                            <div><span className="text-text-muted dark:text-text-muted-dark">{t('colors.linkStyle')}:</span> <span className="text-text-primary dark:text-text-primary-dark">{color.linkStyle || '—'}</span></div>
+                            <div><span className="text-text-muted dark:text-text-muted-dark">{t('colors.textStyle')}:</span> <span className="text-text-primary dark:text-text-primary-dark">{color.textStyle || '—'}</span></div>
                           </div>
                         </details>
                       </div>
@@ -5511,7 +5543,7 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
                               {color.baseColor ? (color.baseColor.charAt(0).toUpperCase() + color.baseColor.slice(1)) : color.name}
                             </div>
                             <div className="text-xs text-text-muted dark:text-text-muted-dark">
-                              {color.baseColor ? 'Standard' : 'Custom'} (Secondary: Auto)
+                              {color.baseColor ? t('colors.standardType') : t('common.custom')} ({t('colors.secondaryAuto')})
                             </div>
                           </div>
                         </div>
@@ -5519,7 +5551,7 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
                           onClick={() => setEditingColorIndex(index)}
                           className="px-3 py-1 text-sm bg-card dark:bg-surface-dark border border-border dark:border-border-dark rounded-button hover:bg-surface dark:hover:bg-surface-dark flex items-center gap-1 text-text-primary dark:text-text-primary-dark"
                         >
-                          <Edit3 className="w-3 h-3" /> Edit
+                          <Edit3 className="w-3 h-3" /> {t('common.edit')}
                         </button>
                       </div>
                     )}
@@ -5538,11 +5570,11 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
           <h3 className="text-lg font-bold text-text-primary dark:text-text-primary-dark mb-4">{t('settings.preview')}</h3>
           <div className="space-y-4">
             <div>
-              <div className="text-sm text-text-secondary dark:text-text-muted-dark mb-2">Default Organisation:</div>
+              <div className="text-sm text-text-secondary dark:text-text-muted-dark mb-2">{t('settings.defaultOrg')}:</div>
               <div className="font-medium text-text-primary dark:text-text-primary-dark">{localSettings.default_organisation || t('common.none')}</div>
             </div>
             <div>
-              <div className="text-sm text-text-secondary dark:text-text-muted-dark mb-3">Color Effects:</div>
+              <div className="text-sm text-text-secondary dark:text-text-muted-dark mb-3">{t('settings.colorEffects')}:</div>
               {(() => {
                 const previewColor = editingColorIndex !== null && localSettings.theme_colors?.[editingColorIndex]
                   ? localSettings.theme_colors[editingColorIndex]
@@ -5552,42 +5584,42 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
                   <div className="space-y-3">
                     {/* Text example */}
                     <div>
-                      <div className="text-xs text-text-muted dark:text-text-muted-dark mb-1">Text</div>
-                      <div 
+                      <div className="text-xs text-text-muted dark:text-text-muted-dark mb-1">{t('settings.previewTextLabel')}</div>
+                      <div
                         className="text-lg font-medium"
                         style={{ color: previewColor?.textStyle || '#4f46e5' }}
                       >
-                        Example Text
+                        {t('settings.previewText')}
                       </div>
                     </div>
                     
                     {/* Link example */}
                     <div>
-                      <div className="text-xs text-text-muted dark:text-text-muted-dark mb-1">Link</div>
-                      <a 
-                        href="#" 
+                      <div className="text-xs text-text-muted dark:text-text-muted-dark mb-1">{t('settings.previewLinkLabel')}</div>
+                      <a
+                        href="#"
                         className="inline-block px-4 py-2 rounded-input border border-border dark:border-border-dark transition-all hover:opacity-80"
                         style={{ color: previewColor?.linkStyle || '#4f46e5' }}
                         onClick={(e) => e.preventDefault()}
                       >
-                        Example Link
+                        {t('settings.previewLink')}
                       </a>
                     </div>
                     
                     {/* Button example */}
                     <div>
-                      <div className="text-xs text-text-muted dark:text-text-muted-dark mb-1">Button</div>
-                      <button 
+                      <div className="text-xs text-text-muted dark:text-text-muted-dark mb-1">{t('settings.previewButtonLabel')}</div>
+                      <button
                         className="px-4 py-2 rounded-full font-medium text-white shadow-md transition-transform active:scale-[0.98]"
                         style={{ backgroundColor: previewColor?.buttonStyle || '#4f46e5' }}
                       >
-                        Example Button
+                        {t('settings.previewButton')}
                       </button>
                     </div>
                     
                     {/* Gradient background example */}
                     <div>
-                      <div className="text-xs text-text-muted dark:text-text-muted-dark mb-1">Gradient Background</div>
+                      <div className="text-xs text-text-muted dark:text-text-muted-dark mb-1">{t('settings.previewGradientLabel')}</div>
                       <div 
                         className="w-full h-12 rounded-container overflow-hidden"
                         style={{ background: previewColor?.gradientStyle || 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}
@@ -5820,7 +5852,7 @@ function PlatformAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm 
           <div className="bg-card dark:bg-card-dark rounded-input shadow-sm border border-border dark:border-border-dark overflow-hidden">
             <div className="p-6 border-b border-border dark:border-border-dark">
               <h2 className="text-lg font-semibold text-text-primary dark:text-text-primary-dark">{t('platform.organisations')}</h2>
-              <p className="text-sm text-text-secondary dark:text-text-muted-dark mt-1">{organisations.length} organisation{organisations.length !== 1 ? 's' : ''} on this platform</p>
+              <p className="text-sm text-text-secondary dark:text-text-muted-dark mt-1">{t('platform.orgCount', { count: organisations.length })}</p>
             </div>
             <div className="divide-y divide-slate-200 dark:divide-slate-700">
               {organisations.length === 0 ? (
@@ -5986,6 +6018,178 @@ function PlatformAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm 
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function SuperAdminView({ apiCall, csrfToken, onBack, showAlert, showConfirm }) {
+  const { t } = useTranslation();
+  const [users, setUsers] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [editingUserId, setEditingUserId] = useState(null);
+
+  const fetchUsers = async () => {
+    setIsLoading(true);
+    try {
+      const res = await apiCall(`${API_ENDPOINT}/superadmin/users`);
+      if (res.ok) {
+        const data = await res.json();
+        setUsers(data);
+      } else {
+        showAlert(t('errors.loadUsersFailed'), 'error');
+      }
+    } catch (e) {
+      showAlert(t('errors.loadUsersError'), 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchUsers(); }, []);
+
+  const handleRoleChange = async (userId, role) => {
+    try {
+      const res = await apiCall(`${API_ENDPOINT}/superadmin/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+        body: JSON.stringify({ role })
+      });
+      if (res.ok) {
+        showAlert(t('users.roleUpdated'), 'success');
+        setEditingUserId(null);
+        fetchUsers();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showAlert(t(err.error || 'errors.updateRoleFailed'), 'error');
+      }
+    } catch {
+      showAlert(t('errors.updateRoleError'), 'error');
+    }
+  };
+
+  const handleDelete = (userId, email) => {
+    showConfirm(t('modals.deleteUserConfirm', { email }), async () => {
+      try {
+        const res = await apiCall(`${API_ENDPOINT}/superadmin/users/${userId}`, {
+          method: 'DELETE',
+          headers: { 'X-CSRF-Token': csrfToken }
+        });
+        if (res.ok) {
+          showAlert(t('users.userDeleted'), 'success');
+          fetchUsers();
+        } else {
+          const err = await res.json().catch(() => ({}));
+          showAlert(t(err.error || 'errors.deleteUserFailed'), 'error');
+        }
+      } catch {
+        showAlert(t('errors.deleteUserError'), 'error');
+      }
+    });
+  };
+
+  // Group users by organisation
+  const grouped = users.reduce((acc, user) => {
+    const orgName = user.organisation_name || t('superAdmin.noOrganisation');
+    if (!acc[orgName]) acc[orgName] = [];
+    acc[orgName].push(user);
+    return acc;
+  }, {});
+
+  return (
+    <div className="min-h-screen bg-bg dark:bg-bg-dark">
+      <div className="max-w-5xl mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-8">
+          <button onClick={onBack} className="p-2 rounded-full hover:bg-surface dark:hover:bg-surface-dark transition-colors text-text-secondary dark:text-text-secondary-dark">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary dark:text-text-primary-dark flex items-center gap-2">
+              <ShieldAlert className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+              {t('superAdmin.title')}
+            </h1>
+            <p className="text-sm text-text-secondary dark:text-text-muted-dark mt-1">{t('superAdmin.description')}</p>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div className="text-center py-12 text-text-secondary dark:text-text-muted-dark">{t('common.loading')}</div>
+        ) : users.length === 0 ? (
+          <div className="text-center py-12 text-text-muted dark:text-text-muted-dark">{t('superAdmin.noUsers')}</div>
+        ) : (
+          <div className="space-y-6">
+            {Object.entries(grouped).map(([orgName, orgUsers]) => (
+              <div key={orgName} className="bg-card dark:bg-card-dark rounded-input shadow-sm border border-border dark:border-border-dark overflow-hidden">
+                <div className="p-4 border-b border-border dark:border-border-dark bg-surface dark:bg-surface-dark flex items-center gap-3">
+                  <Shield className="w-4 h-4 text-text-muted dark:text-text-muted-dark" />
+                  <div>
+                    <span className="font-semibold text-text-primary dark:text-text-primary-dark">{orgName}</span>
+                    <span className="ml-2 text-xs text-text-muted dark:text-text-muted-dark">
+                      {orgUsers.length} {orgUsers.length !== 1 ? t('platform.users') : t('platform.user')}
+                    </span>
+                  </div>
+                </div>
+                <div className="divide-y divide-border dark:divide-border-dark">
+                  {orgUsers.map(user => (
+                    <div key={user.id} className="p-4 flex items-center justify-between hover:bg-surface dark:hover:bg-surface-dark/50 transition-colors">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="w-9 h-9 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
+                          <User className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-medium text-text-primary dark:text-text-primary-dark truncate">{user.email}</div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-badge text-xs font-medium ${
+                              user.role === 'owner'
+                                ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                                : 'bg-surface dark:bg-surface-dark text-text-primary dark:text-text-secondary-dark'
+                            }`}>
+                              {user.role === 'owner' ? t('common.owner') : t('common.member')}
+                            </span>
+                            <span className="text-xs text-text-muted dark:text-text-muted-dark">{t('users.joined', { date: new Date(user.created_at).toLocaleDateString() })}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 ml-4 shrink-0">
+                        {editingUserId === user.id ? (
+                          <>
+                            <select
+                              defaultValue={user.role}
+                              onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                              className="px-3 py-1.5 text-sm rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark"
+                            >
+                              <option value="member">{t('common.member')}</option>
+                              <option value="owner">{t('common.owner')}</option>
+                            </select>
+                            <button onClick={() => setEditingUserId(null)} className="px-3 py-1.5 text-sm bg-surface dark:bg-surface-dark text-text-primary dark:text-text-secondary-dark rounded-button hover:bg-surface dark:hover:bg-surface-dark">
+                              {t('common.cancel')}
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => setEditingUserId(user.id)}
+                              className="px-3 py-1.5 text-sm bg-surface dark:bg-surface-dark text-text-primary dark:text-text-secondary-dark rounded-button hover:bg-surface dark:hover:bg-surface-dark flex items-center gap-1"
+                            >
+                              <Edit3 className="w-3 h-3" /> {t('users.changeRole')}
+                            </button>
+                            <button
+                              onClick={() => handleDelete(user.id, user.email)}
+                              className="px-3 py-1.5 text-sm bg-error-bg dark:bg-error-bg-dark text-error dark:text-error-text-dark rounded-badge hover:bg-error-bg dark:hover:bg-error-bg-dark flex items-center gap-1"
+                            >
+                              <Trash2 className="w-3 h-3" /> {t('common.delete')}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -8,6 +8,7 @@
     "create": "Create",
     "creating": "Creating...",
     "edit": "Edit",
+    "done": "Done",
     "close": "Close",
     "back": "Back",
     "loading": "Loading...",
@@ -45,6 +46,7 @@
     "adminDashboard": "Admin Dashboard",
     "platformAdmin": "Platform Admin",
     "swiishCard": "Swiish Card",
+    "cardTitleWithName": "{{name}} - Swiish Card",
     "cardNotFoundTitle": "Card Not Found",
     "errorLoadingCard": "Error Loading Card",
     "switchToEnglish": "Switch to English",
@@ -257,7 +259,16 @@
     "themeSwiishTitle": "Swiish",
     "themeSwiishDesc": "Original Swiish theme with colors and textures.",
     "themeMinimalTitle": "Minimal",
-    "themeMinimalDesc": "Black/white, few grays, no textures, border-only accents."
+    "themeMinimalDesc": "Black/white, few grays, no textures, border-only accents.",
+    "defaultOrg": "Default Organisation",
+    "colorEffects": "Color Effects",
+    "previewTextLabel": "Text",
+    "previewText": "Example Text",
+    "previewLinkLabel": "Link",
+    "previewLink": "Example Link",
+    "previewButtonLabel": "Button",
+    "previewButton": "Example Button",
+    "previewGradientLabel": "Gradient Background"
   },
   "users": {
     "userManagement": "User Management",
@@ -294,7 +305,12 @@
     "role": "Role",
     "roleUpdated": "Role updated",
     "sent": "Sent!",
-    "userDeleted": "User deleted"
+    "userDeleted": "User deleted",
+    "joined": "Joined {{date}}",
+    "statusSent": "Sent",
+    "statusFailed": "Failed",
+    "statusPending": "Pending",
+    "statusExpired": "Expired"
   },
   "platform": {
     "platformAdmin": "Platform Admin",
@@ -331,7 +347,10 @@
     "orgSettingsTitle": "Organisation settings",
     "deleteOrg": "Delete organisation",
     "user": "user",
-    "users": "users"
+    "users": "users",
+    "orgCount": "{{count}} organisations on this platform",
+    "orgCount_one": "{{count}} organisation on this platform",
+    "orgCount_other": "{{count}} organisations on this platform"
   },
   "invitation": {
     "invitationAcceptance": "Invitation Acceptance",
@@ -352,7 +371,17 @@
     "passwordMin8": "Password must be at least 8 characters",
     "passwordsDoNotMatch": "Passwords do not match",
     "failedAccept": "Failed to accept invitation",
-    "errorAccepting": "Error accepting invitation"
+    "errorAccepting": "Error accepting invitation",
+    "invitedAsRole": "You've been invited to join as a {{role}}"
+  },
+  "superAdmin": {
+    "title": "Super Admin",
+    "navLabel": "Super Admin",
+    "allUsers": "All Users",
+    "orgColumn": "Organisation",
+    "noUsers": "No users found",
+    "description": "Manage users across all organisations",
+    "noOrganisation": "No Organisation"
   },
   "errors": {
     "invalidUserUrl": "Invalid User URL",
@@ -629,7 +658,13 @@
     "secondaryColor": "Secondary Color (optional)",
     "leaveBlankAuto": "Leave blank to use auto (complementary) color",
     "secondaryAutoLabel": "Secondary: Auto (complementary)",
-    "advancedStyles": "Advanced: Generated Styles"
+    "advancedStyles": "Advanced: Generated Styles",
+    "gradientStyle": "Gradient Style",
+    "buttonStyle": "Button Style",
+    "linkStyle": "Link Style",
+    "textStyle": "Text Style",
+    "standardType": "Standard",
+    "secondaryAuto": "Secondary: Auto"
   },
   "social": {
     "linkedin": "LinkedIn",

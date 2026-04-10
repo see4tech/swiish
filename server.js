@@ -485,7 +485,7 @@ const requireAuth = (req, res, next) => {
   if (IS_DEMO_MODE && DEMO_USER_ID) {
     // Get demo user from database (using callback API since sqlite3 is async)
     db.get(
-      'SELECT id, role, organisation_id, is_platform_admin FROM users WHERE id = ?',
+      'SELECT id, role, organisation_id, is_platform_admin, is_super_admin FROM users WHERE id = ?',
       [DEMO_USER_ID],
       (err, row) => {
         if (err || !row) {
@@ -495,7 +495,8 @@ const requireAuth = (req, res, next) => {
           id: row.id,
           organisationId: row.organisation_id,
           role: row.role,
-          isPlatformAdmin: row.is_platform_admin === 1
+          isPlatformAdmin: row.is_platform_admin === 1,
+          isSuperAdmin: row.is_super_admin === 1
         };
         next();
       }
@@ -518,7 +519,8 @@ const requireAuth = (req, res, next) => {
         id: decoded.user_id,
         organisationId: decoded.organisation_id || null,
         role: decoded.role || 'member',
-        isPlatformAdmin: decoded.is_platform_admin === true
+        isPlatformAdmin: decoded.is_platform_admin === true,
+        isSuperAdmin: decoded.is_super_admin === true
       };
     } else if (decoded.admin) {
       // Backward compatibility: if old JWT format, treat as admin
@@ -569,6 +571,26 @@ const requirePlatformAdmin = (req, res, next) => {
       return res.status(403).json({ error: 'errors.unauthorized' });
     }
     req.user.isPlatformAdmin = true; // update in-request cache
+    next();
+  });
+};
+
+// Super admin access control middleware
+const requireSuperAdmin = (req, res, next) => {
+  if (!req.user || !req.user.id) {
+    return res.status(401).json({ error: 'errors.unauthorized' });
+  }
+  // Fast path: JWT already carries the claim
+  if (req.user.isSuperAdmin) {
+    return next();
+  }
+  // Slow path: JWT is stale — check DB
+  db.get('SELECT is_super_admin FROM users WHERE id = ?', [req.user.id], (err, row) => {
+    if (err) return next(err);
+    if (!row || row.is_super_admin !== 1) {
+      return res.status(403).json({ error: 'errors.unauthorized' });
+    }
+    req.user.isSuperAdmin = true;
     next();
   });
 };
@@ -771,7 +793,7 @@ app.post('/api/login', loginLimiter, [
     const { email, password } = req.body;
     
     // Look up user by email
-    db.get("SELECT id, email, password_hash, organisation_id, role, is_platform_admin FROM users WHERE email = ?", [email.toLowerCase()], async (err, user) => {
+    db.get("SELECT id, email, password_hash, organisation_id, role, is_platform_admin, is_super_admin FROM users WHERE email = ?", [email.toLowerCase()], async (err, user) => {
       if (err) {
         return next(err);
       }
@@ -793,7 +815,8 @@ app.post('/api/login', loginLimiter, [
           user_id: user.id,
           organisation_id: user.organisation_id,
           role: user.role,
-          is_platform_admin: user.is_platform_admin === 1
+          is_platform_admin: user.is_platform_admin === 1,
+          is_super_admin: user.is_super_admin === 1
         },
         JWT_SECRET,
         { expiresIn: JWT_EXPIRES_IN }
@@ -888,7 +911,7 @@ app.get('/api/auth/me', requireAuth, apiLimiter, (req, res, next) => {
     return res.status(401).json({ error: 'errors.unauthorized' });
   }
 
-  db.get("SELECT id, email, organisation_id, role, email_verified, is_platform_admin FROM users WHERE id = ?", [req.user.id], (err, user) => {
+  db.get("SELECT id, email, organisation_id, role, email_verified, is_platform_admin, is_super_admin FROM users WHERE id = ?", [req.user.id], (err, user) => {
     if (err) return next(err);
     if (!user) {
       return res.status(404).json({ error: 'errors.userNotFound' });
@@ -909,6 +932,7 @@ app.get('/api/auth/me', requireAuth, apiLimiter, (req, res, next) => {
           role: user.role,
           emailVerified: user.email_verified === 1,
           isPlatformAdmin: user.is_platform_admin === 1,
+          isSuperAdmin: user.is_super_admin === 1,
           language: langRow ? langRow.value : null,
           orgDefaultLanguage: orgLangRow ? orgLangRow.value : 'en'
         });
@@ -1095,7 +1119,7 @@ app.get('/api/admin/cards', requireAuth, apiLimiter, (req, res, next) => {
             c.data
           FROM users u
           LEFT JOIN cards c ON c.user_id = u.id
-          WHERE u.organisation_id = ?
+          WHERE u.organisation_id = ? AND u.is_super_admin = 0
           ORDER BY u.created_at DESC, c.created_at DESC
         `;
         const params = [req.user.organisationId];
@@ -2096,7 +2120,7 @@ app.get('/api/admin/users', requireAuth, requireRole('owner'), apiLimiter, (req,
   }
   
   db.all(
-    "SELECT id, email, role, created_at FROM users WHERE organisation_id = ? ORDER BY created_at DESC",
+    "SELECT id, email, role, created_at FROM users WHERE organisation_id = ? AND is_super_admin = 0 ORDER BY created_at DESC",
     [req.user.organisationId],
     (err, rows) => {
       if (err) return next(err);
@@ -3406,7 +3430,7 @@ app.post('/api/qr/:identifier', publicReadLimiter, [
 app.get('/api/platform/organisations', requireAuth, requirePlatformAdmin, apiLimiter, (req, res, next) => {
   db.all(
     `SELECT o.id, o.name, o.slug, o.subscription_tier, o.created_at,
-            COUNT(u.id) AS user_count
+            COUNT(CASE WHEN u.is_super_admin = 0 THEN 1 END) AS user_count
      FROM organisations o
      LEFT JOIN users u ON u.organisation_id = o.id
      GROUP BY o.id
@@ -3619,6 +3643,80 @@ app.put('/api/platform/organisations/:orgId/settings', requireAuth, requirePlatf
       .then(() => res.json({ success: true }))
       .catch((err) => next(err));
   });
+});
+
+// --- SUPER ADMIN ENDPOINTS ---
+
+// GET all users across all organisations (super admin only, excludes super admins)
+app.get('/api/superadmin/users', requireAuth, requireSuperAdmin, apiLimiter, (req, res, next) => {
+  db.all(
+    `SELECT u.id, u.email, u.role, u.organisation_id, u.created_at,
+            o.name AS organisation_name
+     FROM users u
+     LEFT JOIN organisations o ON o.id = u.organisation_id
+     WHERE u.is_super_admin = 0
+     ORDER BY o.name ASC, u.created_at DESC`,
+    [],
+    (err, rows) => {
+      if (err) return next(err);
+      res.json(rows);
+    }
+  );
+});
+
+// PATCH change role of any user in any org (super admin only, cannot target super admins)
+app.patch('/api/superadmin/users/:userId', requireAuth, requireSuperAdmin, apiLimiter, csrfProtection, [
+  param('userId').isUUID().withMessage('Invalid user ID'),
+  body('role').isIn(['owner', 'member']).withMessage('Role must be owner or member')
+], handleValidationErrors, (req, res, next) => {
+  const { userId } = req.params;
+  const { role } = req.body;
+  if (userId === req.user.id) {
+    return res.status(400).json({ error: 'errors.cannotChangeOwnRole' });
+  }
+  db.get('SELECT id, role, is_super_admin FROM users WHERE id = ?', [userId], (err, user) => {
+    if (err) return next(err);
+    if (!user) return res.status(404).json({ error: 'errors.userNotFound' });
+    if (user.is_super_admin) return res.status(403).json({ error: 'errors.unauthorized' });
+    db.run('UPDATE users SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [role, userId], (err) => {
+      if (err) return next(err);
+      res.json({ success: true });
+    });
+  });
+});
+
+// DELETE any user in any org (super admin only, cannot target super admins)
+app.delete('/api/superadmin/users/:userId', requireAuth, requireSuperAdmin, apiLimiter, csrfProtection, [
+  param('userId').isUUID().withMessage('Invalid user ID')
+], handleValidationErrors, async (req, res, next) => {
+  const { userId } = req.params;
+  if (userId === req.user.id) {
+    return res.status(400).json({ error: 'errors.cannotDeleteYourself' });
+  }
+  try {
+    const user = await new Promise((resolve, reject) => {
+      db.get('SELECT id, email, role, organisation_id, is_super_admin FROM users WHERE id = ?', [userId], (err, row) => {
+        if (err) reject(err); else resolve(row);
+      });
+    });
+    if (!user) return res.status(404).json({ error: 'errors.userNotFound' });
+    if (user.is_super_admin) return res.status(403).json({ error: 'errors.unauthorized' });
+
+    const cards = await new Promise((resolve, reject) => {
+      db.all('SELECT * FROM cards WHERE user_id = ?', [userId], (err, rows) => {
+        if (err) reject(err); else resolve(rows);
+      });
+    });
+    await logAudit('user_deleted', 'user', userId, { user, cards, card_count: cards.length }, req.user.id, user.organisation_id);
+    await new Promise((resolve, reject) => {
+      db.run('DELETE FROM users WHERE id = ?', [userId], (err) => {
+        if (err) reject(err); else resolve();
+      });
+    });
+    res.json({ success: true, deletedCards: cards.length });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // Error handling middleware (must be last)
