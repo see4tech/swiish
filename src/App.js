@@ -695,7 +695,8 @@ export default function App() {
   const [isSuccessSetup, setIsSuccessSetup] = useState(false);
   const [isSuccessCreateUser, setIsSuccessCreateUser] = useState(false);
   const [isSuccessInvite, setIsSuccessInvite] = useState(false);
-  
+  const [walletModal, setWalletModal] = useState({ isOpen: false, slug: null });
+
   // Demo mode state management
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [demoResetInterval, setDemoResetInterval] = useState(60);
@@ -1787,6 +1788,14 @@ const [settings, setSettings] = useState({
     );
   };
 
+  const handleWalletEmail = async () => {
+    const { slug } = walletModal;
+    setWalletModal({ isOpen: false, slug: null });
+    const res = await apiCall(`${API_ENDPOINT}/wallet/google/${slug}/email`, { method: 'POST' });
+    if (res.ok) showAlert(t('dashboard.walletEmailSent'), 'success');
+    else showAlert(t('errors.walletEmailFailed'), 'error');
+  };
+
   const handleSave = async () => {
     const performSave = async () => {
       setIsSaving(true);
@@ -2062,6 +2071,10 @@ const [settings, setSettings] = useState({
                           </a>
                           <button onClick={() => handleEdit(card.slug)} className="flex-1 py-2 text-xs font-medium text-confirm-text dark:text-confirm-text-dark bg-confirm dark:bg-confirm-dark rounded-button hover:bg-confirm-hover dark:hover:bg-confirm-hover-dark flex items-center justify-center gap-1"><Edit3 className="w-3 h-3"/> {t('common.edit')}</button>
                         </div>
+                        <button onClick={() => setWalletModal({ isOpen: true, slug: card.slug })} className="w-full mt-2 py-2 text-xs font-medium text-white rounded-button flex items-center justify-center gap-1" style={{ backgroundColor: '#1a73e8' }}>
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
+                          {t('dashboard.addToWallet')}
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -2182,16 +2195,20 @@ const [settings, setSettings] = useState({
                                   </div>
                                 </div>
                                 <div className="flex items-center justify-center gap-2 w-full mt-auto">
-                                  <a 
-                                    href={card.shortCode ? `/${card.shortCode}` : (card.orgSlug && card.slug ? `/${card.orgSlug}/${card.slug}` : `/${card.slug}`)} 
-                                    target="_blank" 
-                                    rel="noreferrer" 
+                                  <a
+                                    href={card.shortCode ? `/${card.shortCode}` : (card.orgSlug && card.slug ? `/${card.orgSlug}/${card.slug}` : `/${card.slug}`)}
+                                    target="_blank"
+                                    rel="noreferrer"
                                     className="flex-1 py-2 text-xs font-medium text-confirm-text dark:text-confirm-text-dark bg-confirm dark:bg-confirm-dark rounded-button hover:bg-confirm-hover dark:hover:bg-confirm-hover-dark flex items-center justify-center gap-1"
                                   >
                                     <ExternalLink className="w-3 h-3"/> {t('common.view')}
                                   </a>
                                   <button onClick={() => handleEdit(card.slug)} className="flex-1 py-2 text-xs font-medium text-confirm-text dark:text-confirm-text-dark bg-confirm dark:bg-confirm-dark rounded-button hover:bg-confirm-hover dark:hover:bg-confirm-hover-dark flex items-center justify-center gap-1"><Edit3 className="w-3 h-3"/> {t('common.edit')}</button>
                                 </div>
+                                <button onClick={() => setWalletModal({ isOpen: true, slug: card.slug })} className="w-full mt-2 py-2 text-xs font-medium text-white rounded-button flex items-center justify-center gap-1" style={{ backgroundColor: '#1a73e8' }}>
+                                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
+                                  {t('dashboard.addToWallet')}
+                                </button>
                               </div>
                             </div>
                           ))}
@@ -2228,6 +2245,34 @@ const [settings, setSettings] = useState({
               <img src="/graphics/Swiish_Logo_DarkBg.svg" alt="Swiish" className="h-4 w-auto hidden dark:block swiish-logo" />
             </div>
           </div>
+          {/* Google Wallet Modal */}
+          {walletModal.isOpen && (
+            <div className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center p-4">
+              <div className="bg-card dark:bg-card-dark rounded-card shadow-2xl w-full max-w-sm p-6 space-y-4">
+                <h3 className="font-bold text-text-primary dark:text-text-primary-dark text-lg">{t('dashboard.addToWallet')}</h3>
+                <p className="text-sm text-text-muted dark:text-text-muted-dark">{t('dashboard.walletChoiceDesc')}</p>
+                <button
+                  onClick={() => { window.location.href = `/api/wallet/google/${walletModal.slug}`; setWalletModal({ isOpen: false, slug: null }); }}
+                  className="w-full py-3 rounded-full text-white font-bold text-sm"
+                  style={{ backgroundColor: '#1a73e8' }}
+                >
+                  {t('dashboard.walletOpenNow')}
+                </button>
+                <button
+                  onClick={handleWalletEmail}
+                  className="w-full py-3 rounded-full border border-border dark:border-border-dark text-text-primary dark:text-text-primary-dark font-medium text-sm hover:bg-surface dark:hover:bg-surface-dark"
+                >
+                  {t('dashboard.walletSendEmail')}
+                </button>
+                <button
+                  onClick={() => setWalletModal({ isOpen: false, slug: null })}
+                  className="w-full py-2 text-sm text-text-muted dark:text-text-muted-dark"
+                >
+                  {t('common.cancel')}
+                </button>
+              </div>
+            </div>
+          )}
           {/* Modals */}
           {actionSelectionModal.isOpen && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
@@ -3270,27 +3315,6 @@ function CardDisplay({ data, settings, darkMode, toggleDarkMode, showAlert }) {
               );
             }
             return null;
-          })()}
-          {(() => {
-            // Add to Google Wallet button — Android only
-            const isAndroid = /android/i.test(navigator.userAgent);
-            if (!isAndroid) return null;
-            const pathParts = window.location.pathname.substring(1).split('/').filter(p => p);
-            const isShortCodeRoute = pathParts.length === 1 && /^[a-zA-Z0-9]{7}$/.test(pathParts[0]);
-            const walletIdentifier = data._shortCode || (isShortCodeRoute ? pathParts[0] : pathParts[pathParts.length - 1]);
-            if (!walletIdentifier) return null;
-            return (
-              <a
-                href={`/api/wallet/google/${walletIdentifier}`}
-                className="col-span-2 flex items-center justify-center gap-2 py-3.5 rounded-full font-bold text-white shadow-lg transition-transform active:scale-[0.98]"
-                style={{ backgroundColor: '#1a73e8' }}
-              >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
-                </svg>
-                {t('card.addToGoogleWallet')}
-              </a>
-            );
           })()}
           {(() => {
             const requireInteraction = privacy.requireInteraction ?? true;

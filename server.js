@@ -4035,6 +4035,38 @@ app.get('/api/wallet/google/:identifier', publicReadLimiter, async (req, res, ne
   }
 });
 
+// POST /api/wallet/google/:slug/email — email the wallet pass link to the card owner
+app.post('/api/wallet/google/:slug/email', requireAuth, apiLimiter, csrfProtection, async (req, res, next) => {
+  const { slug } = req.params;
+  try {
+    const card = await new Promise((resolve, reject) =>
+      db.get('SELECT slug, short_code, data FROM cards WHERE slug = ? AND user_id = ?',
+        [slug, req.user.id], (err, row) => err ? reject(err) : resolve(row))
+    );
+    if (!card) return res.status(404).json({ error: 'errors.cardNotFound' });
+
+    card.data = typeof card.data === 'string' ? JSON.parse(card.data) : card.data;
+    const host = `${req.protocol}://${req.get('host')}`;
+    const cardUrl = card.short_code ? `${host}/${card.short_code}` : `${host}/${card.slug}`;
+    const walletUrl = buildGoogleWalletUrl(card, cardUrl);
+    if (!walletUrl) return res.status(503).json({ error: 'Google Wallet not configured' });
+
+    const toEmail = req.user.email;
+    const firstName = card.data?.personal?.firstName || slug;
+    await emailTransporter.sendMail({
+      from: SMTP_FROM,
+      to: toEmail,
+      subject: `Your Google Wallet pass — ${firstName}`,
+      html: `<p>Hi ${firstName},</p>
+             <p>Open this email on your Android device and tap the button below to add your digital business card to Google Wallet:</p>
+             <p style="margin:24px 0"><a href="${walletUrl}" style="background:#1a73e8;color:#fff;padding:14px 28px;border-radius:24px;text-decoration:none;font-weight:bold;display:inline-block;font-size:15px">Add to Google Wallet</a></p>
+             <p style="color:#888;font-size:13px">If the button doesn't work, copy and open this link on your Android device:<br><a href="${walletUrl}">${walletUrl}</a></p>`,
+      text: `Hi ${firstName},\n\nAdd your digital business card to Google Wallet:\n${walletUrl}`
+    });
+    res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
 // Error handling middleware (must be last)
 app.use(errorHandler);
 
