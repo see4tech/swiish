@@ -4045,13 +4045,19 @@ app.post('/api/wallet/google/:slug/email', requireAuth, apiLimiter, csrfProtecti
     );
     if (!card) return res.status(404).json({ error: 'errors.cardNotFound' });
 
+    // Look up user email (not stored in JWT)
+    const userRow = await new Promise((resolve, reject) =>
+      db.get('SELECT email FROM users WHERE id = ?', [req.user.id], (err, row) => err ? reject(err) : resolve(row))
+    );
+    if (!userRow) return res.status(404).json({ error: 'errors.userNotFound' });
+
     card.data = typeof card.data === 'string' ? JSON.parse(card.data) : card.data;
     const host = `${req.protocol}://${req.get('host')}`;
     const cardUrl = card.short_code ? `${host}/${card.short_code}` : `${host}/${card.slug}`;
     const walletUrl = buildGoogleWalletUrl(card, cardUrl);
     if (!walletUrl) return res.status(503).json({ error: 'Google Wallet not configured' });
 
-    const toEmail = req.user.email;
+    const toEmail = userRow.email;
     const firstName = card.data?.personal?.firstName || slug;
     await emailTransporter.sendMail({
       from: SMTP_FROM,
