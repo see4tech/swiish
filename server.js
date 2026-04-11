@@ -4014,6 +4014,51 @@ function buildGoogleWalletUrl(card, cardUrl) {
   return `https://pay.google.com/gp/v/save/${token}`;
 }
 
+// Debug: check Google Wallet API status — OAuth token, class existence, etc. (superadmin only)
+app.get('/api/wallet/google-status', requireAuth, requireSuperAdmin, async (req, res) => {
+  const issuerId    = process.env.GOOGLE_WALLET_ISSUER_ID;
+  const classSuffix = process.env.GOOGLE_WALLET_CLASS_SUFFIX || 'business_card';
+  const saEmail     = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  const saKey       = (process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || '').replace(/\\n/g, '\n');
+
+  if (!issuerId || !saEmail || !saKey) {
+    return res.json({ error: 'Missing env vars', issuerId: !!issuerId, saEmail: !!saEmail, saKey: !!saKey });
+  }
+
+  const classId = `${issuerId}.${classSuffix}`;
+  const result = { issuerId, saEmail: saEmail.substring(0, 20) + '...', classId };
+
+  try {
+    const token = await getGoogleAccessToken(saEmail, saKey);
+    result.oauthOk = true;
+
+    // Check if class exists
+    const checkRes = await fetch(
+      `https://walletobjects.googleapis.com/walletobjects/v1/genericClass/${encodeURIComponent(classId)}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    result.classCheckStatus = checkRes.status;
+    const checkBody = await checkRes.json();
+    result.classCheckBody = checkBody;
+
+    if (checkRes.status === 404) {
+      // Try to create it
+      const createRes = await fetch('https://walletobjects.googleapis.com/walletobjects/v1/genericClass', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: classId })
+      });
+      result.classCreateStatus = createRes.status;
+      result.classCreateBody = await createRes.json();
+    }
+  } catch (e) {
+    result.oauthOk = false;
+    result.oauthError = e.message;
+  }
+
+  res.json(result);
+});
+
 // Debug: decode wallet JWT for a slug (superadmin only)
 app.get('/api/wallet/google/:slug/debug', requireAuth, requireSuperAdmin, async (req, res) => {
   const { slug } = req.params;
