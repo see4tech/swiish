@@ -4054,11 +4054,18 @@ app.post('/api/wallet/google/:slug/email', requireAuth, apiLimiter, csrfProtecti
     card.data = typeof card.data === 'string' ? JSON.parse(card.data) : card.data;
     const host = `${req.protocol}://${req.get('host')}`;
     const cardUrl = card.short_code ? `${host}/${card.short_code}` : `${host}/${card.slug}`;
-    const walletUrl = buildGoogleWalletUrl(card, cardUrl);
+    let walletUrl;
+    try {
+      walletUrl = buildGoogleWalletUrl(card, cardUrl);
+    } catch (walletErr) {
+      console.error('[Wallet Email] buildGoogleWalletUrl error:', walletErr.message);
+      return res.status(500).json({ error: 'Failed to build wallet URL', detail: walletErr.message });
+    }
     if (!walletUrl) return res.status(503).json({ error: 'Google Wallet not configured' });
 
     const toEmail = userRow.email;
     const firstName = card.data?.personal?.firstName || slug;
+    console.log('[Wallet Email] Sending to:', toEmail, 'walletUrl length:', walletUrl?.length);
     await emailTransporter.sendMail({
       from: SMTP_FROM,
       to: toEmail,
