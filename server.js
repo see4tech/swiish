@@ -3976,19 +3976,27 @@ function buildGoogleWalletUrl(card, cardUrl) {
   if (contact.email)    textModules.push({ id: 'email',   header: 'Email',   body: contact.email });
   if (contact.phone)    textModules.push({ id: 'phone',   header: 'Phone',   body: contact.phone });
 
+  // Only use avatar if it's a real HTTPS URL (not data: or blob: which Google can't fetch)
+  const avatarUrl = card.data?.images?.avatar;
+  const logoUri = (avatarUrl && avatarUrl.startsWith('https://')) ? avatarUrl : null;
+
+  const subheaderText = personal.title || personal.company || '';
+
   const passObject = {
     id: objectId,
     classId,
     genericType: 'GENERIC_TYPE_UNSPECIFIED',
     hexBackgroundColor: '#4f46e5',
-    ...(card.data?.images?.avatar ? { logo: { sourceUri: { uri: card.data.images.avatar } } } : {}),
+    ...(logoUri ? { logo: { sourceUri: { uri: logoUri } } } : {}),
     cardTitle: { defaultValue: { language: 'en-US', value: 'Digital Business Card' } },
     header:    { defaultValue: { language: 'en-US', value: name } },
-    subheader: { defaultValue: { language: 'en-US', value: personal.title || personal.company || '' } },
+    ...(subheaderText ? { subheader: { defaultValue: { language: 'en-US', value: subheaderText } } } : {}),
     ...(textModules.length ? { textModulesData: textModules } : {}),
     linksModuleData: { uris: [{ uri: cardUrl, description: 'View Digital Card', id: 'card_url' }] },
     barcode: { type: 'QR_CODE', value: cardUrl }
   };
+
+  console.log('[Google Wallet] Building pass for:', card.slug, '| classId:', classId, '| objectId:', objectId, '| logoUri:', logoUri || 'none');
 
   const jwtPayload = {
     iss: saEmail,
@@ -4005,6 +4013,24 @@ function buildGoogleWalletUrl(card, cardUrl) {
   const token = jwt.sign(jwtPayload, saKey, { algorithm: 'RS256' });
   return `https://pay.google.com/gp/v/save/${token}`;
 }
+
+// Debug: decode wallet JWT for a slug (superadmin only)
+app.get('/api/wallet/google/:slug/debug', requireAuth, requireSuperAdmin, async (req, res) => {
+  const { slug } = req.params;
+  const card = await new Promise((resolve, reject) =>
+    db.get('SELECT slug, short_code, data FROM cards WHERE slug = ?', [slug], (err, row) => err ? reject(err) : resolve(row))
+  );
+  if (!card) return res.status(404).json({ error: 'Card not found' });
+  card.data = typeof card.data === 'string' ? JSON.parse(card.data) : card.data;
+  const host = `${req.protocol}://${req.get('host')}`;
+  const cardUrl = card.short_code ? `${host}/${card.short_code}` : `${host}/${card.slug}`;
+  const walletUrl = buildGoogleWalletUrl(card, cardUrl);
+  if (!walletUrl) return res.status(503).json({ error: 'Google Wallet not configured' });
+  // Decode JWT payload without verification so we can inspect it
+  const parts = walletUrl.split('/').pop().split('.');
+  const decoded = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+  res.json({ walletUrl, decoded });
+});
 
 app.get('/api/wallet/google/:identifier', publicReadLimiter, async (req, res, next) => {
   const { identifier } = req.params;
