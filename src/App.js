@@ -1465,7 +1465,7 @@ const [settings, setSettings] = useState({
         }
       } else {
         const errorData = await res.json().catch(() => ({}));
-        setError(errorData.error || t('errors.invalidCredentials'));
+        setError(t(errorData.error || 'errors.invalidCredentials'));
       }
     } catch (e) { 
       setError(t('errors.loginFailed')); 
