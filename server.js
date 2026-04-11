@@ -3960,7 +3960,8 @@ function buildGoogleWalletUrl(card, cardUrl) {
   if (!issuerId || !saEmail || !saKey) return null;
 
   const classId  = `${issuerId}.${classSuffix}`;
-  const objectId = `${issuerId}.${card.slug}_${Date.now()}`;
+  const safeSlug = (card.slug || 'card').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const objectId = `${issuerId}.${safeSlug}_${Date.now()}`;
 
   const personal = card.data?.personal || {};
   const contact  = card.data?.contact  || {};
@@ -3991,7 +3992,7 @@ function buildGoogleWalletUrl(card, cardUrl) {
     aud: 'google',
     typ: 'savetowallet',
     iat: Math.floor(Date.now() / 1000),
-    origins: [process.env.APP_URL || ''],
+    origins: [(() => { try { return new URL(process.env.APP_URL || '').hostname; } catch(e) { return process.env.APP_URL || ''; } })()],
     payload: { genericObjects: [passObject] }
   };
 
