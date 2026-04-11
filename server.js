@@ -3996,7 +3996,10 @@ function buildGoogleWalletUrl(card, cardUrl) {
     typ: 'savetowallet',
     iat: Math.floor(Date.now() / 1000),
     origins: [(() => { try { return new URL(process.env.APP_URL || '').hostname; } catch(e) { return process.env.APP_URL || ''; } })()],
-    payload: { genericObjects: [passObject] }
+    payload: {
+      genericClasses: [{ id: classId }],
+      genericObjects: [passObject]
+    }
   };
 
   const token = jwt.sign(jwtPayload, saKey, { algorithm: 'RS256' });
