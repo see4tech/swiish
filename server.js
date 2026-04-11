@@ -111,10 +111,13 @@ if (IS_DEMO_MODE) {
 // Create email transporter (only if SMTP is configured)
 let emailTransporter = null;
 if (SMTP_HOST && SMTP_USER && SMTP_PASSWORD) {
+  // Port 465 = implicit SSL (secure:true), port 587/25 = STARTTLS (secure:false)
+  const smtpSecure = SMTP_SECURE || SMTP_PORT === 465;
   emailTransporter = nodemailer.createTransport({
     host: SMTP_HOST,
     port: SMTP_PORT,
-    secure: SMTP_SECURE,
+    secure: smtpSecure,
+    ...((!smtpSecure && SMTP_PORT === 587) ? { requireTLS: true } : {}),
     auth: {
       user: SMTP_USER,
       pass: SMTP_PASSWORD
