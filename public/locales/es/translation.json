@@ -107,11 +107,12 @@
     "enterUserUrl": "Ingresa una URL de usuario para la nueva tarjeta (ej., 'sara'):",
     "noCardYet": "Aún no tienes una tarjeta",
     "userUrlLabel": "URL del usuario",
-    "addToWallet": "Añadir a Google Wallet",
-    "walletChoiceDesc": "Abre Google Wallet ahora en este dispositivo, o envíate el enlace por correo.",
-    "walletOpenNow": "Abrir en este dispositivo",
+    "addToWallet": "Mi código QR",
+    "myQRCode": "Mi código QR",
+    "qrChoiceDesc": "Guarda un acceso directo a tu código QR o envía el enlace a tu correo.",
+    "downloadShortcut": "Guardar acceso directo",
     "walletSendEmail": "Enviar a mi correo",
-    "walletEmailSent": "Enlace de Wallet enviado a tu correo"
+    "qrEmailSent": "Enlace QR enviado a tu correo"
   },
   "editor": {
     "editingLabel": "Editando: {{slug}}",
@@ -499,7 +500,8 @@
     "updateRoleFailed": "Error al actualizar el rol",
     "userUrlExistsTitle": "URL de usuario ya existe",
     "userUrlTooShort": "La URL del usuario debe tener al menos 1 carácter",
-    "walletEmailFailed": "Error al enviar el correo de Wallet"
+    "walletEmailFailed": "Error al enviar el correo de Wallet",
+    "qrEmailFailed": "Error al enviar el correo con el código QR"
   },
   "validation": {
     "organisationNameRequired": "El nombre de la organización es obligatorio y debe tener menos de 200 caracteres",

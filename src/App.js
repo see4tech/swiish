@@ -658,7 +658,8 @@ export default function App() {
     const pathParts = initialPath.substring(1).split('/').filter(p => p);
     const isShortCode = pathParts.length === 1 && /^[a-zA-Z0-9]{7}$/.test(pathParts[0]);
     const isOrgScoped = pathParts.length === 2 && pathParts[0] && pathParts[1];
-    const isPublicRoute = isShortCode || isOrgScoped || (pathParts.length === 1 && pathParts[0] && !initialPath.startsWith('/people') && !initialPath.startsWith('/login') && !initialPath.startsWith('/setup') && !initialPath.startsWith('/settings') && !initialPath.startsWith('/users') && !initialPath.startsWith('/cards') && initialPath !== '/');
+    const isQrRoute = pathParts[0] === 'qr' && pathParts.length === 2;
+    const isPublicRoute = isShortCode || isOrgScoped || isQrRoute || (pathParts.length === 1 && pathParts[0] && !initialPath.startsWith('/people') && !initialPath.startsWith('/login') && !initialPath.startsWith('/setup') && !initialPath.startsWith('/settings') && !initialPath.startsWith('/users') && !initialPath.startsWith('/cards') && initialPath !== '/');
     return isPublicRoute ? 'public-loading' : 'loading';
   }); 
   const [data, setData] = useState(() => getDefaultTemplate(null));
@@ -926,7 +927,8 @@ const [settings, setSettings] = useState({
     const pathParts = path.substring(1).split('/').filter(p => p);
     const isShortCode = pathParts.length === 1 && /^[a-zA-Z0-9]{7}$/.test(pathParts[0]);
     const isOrgScoped = pathParts.length === 2 && pathParts[0] && pathParts[1];
-    const isPublicRoute = isShortCode || isOrgScoped || (pathParts.length === 1 && pathParts[0] && !path.startsWith('/people') && !path.startsWith('/login') && !path.startsWith('/setup') && !path.startsWith('/settings') && !path.startsWith('/users') && !path.startsWith('/cards') && path !== '/');
+    const isQrRoute = pathParts[0] === 'qr' && pathParts.length === 2;
+    const isPublicRoute = isShortCode || isOrgScoped || isQrRoute || (pathParts.length === 1 && pathParts[0] && !path.startsWith('/people') && !path.startsWith('/login') && !path.startsWith('/setup') && !path.startsWith('/settings') && !path.startsWith('/users') && !path.startsWith('/cards') && path !== '/');
     
     if (isPublicRoute) {
       // Don't interfere with public card routes - let PublicCardRoute handle it
@@ -1788,12 +1790,24 @@ const [settings, setSettings] = useState({
     );
   };
 
-  const handleWalletEmail = async () => {
+  const handleQREmail = async () => {
     const { slug } = walletModal;
     setWalletModal({ isOpen: false, slug: null });
-    const res = await apiCall(`${API_ENDPOINT}/wallet/google/${slug}/email`, { method: 'POST' });
-    if (res.ok) showAlert(t('dashboard.walletEmailSent'), 'success');
-    else showAlert(t('errors.walletEmailFailed'), 'error');
+    const res = await apiCall(`${API_ENDPOINT}/qr/${slug}/email`, { method: 'POST' });
+    if (res.ok) showAlert(t('dashboard.qrEmailSent'), 'success');
+    else showAlert(t('errors.qrEmailFailed'), 'error');
+  };
+
+  const handleDownloadShortcut = (slug) => {
+    setWalletModal({ isOpen: false, slug: null });
+    const qrPageUrl = `${window.location.origin}/qr/${slug}`;
+    const content = `[InternetShortcut]\nURL=${qrPageUrl}\n`;
+    const blob = new Blob([content], { type: 'text/plain' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${slug}-qr.url`;
+    link.click();
+    URL.revokeObjectURL(link.href);
   };
 
   const handleSave = async () => {
@@ -2245,21 +2259,21 @@ const [settings, setSettings] = useState({
               <img src="/graphics/Swiish_Logo_DarkBg.svg" alt="Swiish" className="h-4 w-auto hidden dark:block swiish-logo" />
             </div>
           </div>
-          {/* Google Wallet Modal */}
+          {/* QR Code Modal */}
           {walletModal.isOpen && (
             <div className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center p-4">
               <div className="bg-card dark:bg-card-dark rounded-card shadow-2xl w-full max-w-sm p-6 space-y-4">
-                <h3 className="font-bold text-text-primary dark:text-text-primary-dark text-lg">{t('dashboard.addToWallet')}</h3>
-                <p className="text-sm text-text-muted dark:text-text-muted-dark">{t('dashboard.walletChoiceDesc')}</p>
+                <h3 className="font-bold text-text-primary dark:text-text-primary-dark text-lg">{t('dashboard.myQRCode')}</h3>
+                <p className="text-sm text-text-muted dark:text-text-muted-dark">{t('dashboard.qrChoiceDesc')}</p>
                 <button
-                  onClick={() => { window.location.href = `/api/wallet/google/${walletModal.slug}`; setWalletModal({ isOpen: false, slug: null }); }}
+                  onClick={() => handleDownloadShortcut(walletModal.slug)}
                   className="w-full py-3 rounded-full text-white font-bold text-sm"
-                  style={{ backgroundColor: '#1a73e8' }}
+                  style={{ backgroundColor: '#4f46e5' }}
                 >
-                  {t('dashboard.walletOpenNow')}
+                  {t('dashboard.downloadShortcut')}
                 </button>
                 <button
-                  onClick={handleWalletEmail}
+                  onClick={handleQREmail}
                   className="w-full py-3 rounded-full border border-border dark:border-border-dark text-text-primary dark:text-text-primary-dark font-medium text-sm hover:bg-surface dark:hover:bg-surface-dark"
                 >
                   {t('dashboard.walletSendEmail')}
@@ -2603,6 +2617,8 @@ const [settings, setSettings] = useState({
             API_ENDPOINT={API_ENDPOINT}
           />
         } />
+        {/* Public QR code display page - no auth required */}
+        <Route path="/qr/:slug" element={<QRDisplayPage API_ENDPOINT={API_ENDPOINT} />} />
         {/* Public card routes - org-scoped must come before single slug */}
         <Route path="/:orgSlug/:cardSlug" element={
           <PublicCardRoute 
@@ -2639,6 +2655,48 @@ const [settings, setSettings] = useState({
         <Route path="*" element={renderAdminViews()} />
       </Routes>
     </>
+  );
+}
+
+function QRDisplayPage({ API_ENDPOINT }) {
+  const { slug } = useParams();
+  const [qrUrl, setQrUrl] = React.useState(null);
+  const [cardInfo, setCardInfo] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    Promise.all([
+      fetch(`${API_ENDPOINT}/qr/${slug}`).then(r => r.json()).catch(() => ({})),
+      fetch(`${API_ENDPOINT}/cards/${slug}`).then(r => r.json()).catch(() => ({}))
+    ]).then(([qrData, cardData]) => {
+      setQrUrl(qrData.qrCode || null);
+      const personal = cardData?.personal || {};
+      const name = [personal.firstName, personal.lastName].filter(Boolean).join(' ');
+      setCardInfo({ name, subtitle: personal.title || personal.company || '' });
+      setLoading(false);
+    });
+  }, [slug, API_ENDPOINT]);
+
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-white p-8 gap-6">
+      {cardInfo?.name && (
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900">{cardInfo.name}</h1>
+          {cardInfo.subtitle && <p className="text-gray-500 mt-1">{cardInfo.subtitle}</p>}
+        </div>
+      )}
+      {qrUrl
+        ? <img src={qrUrl} alt="QR Code" className="w-64 h-64" style={{ imageRendering: 'pixelated' }} />
+        : <p className="text-red-500">QR code not found</p>
+      }
+      <p className="text-sm text-gray-400">Scan to view my digital card</p>
+    </div>
   );
 }
 

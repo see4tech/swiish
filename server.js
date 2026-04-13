@@ -3448,6 +3448,40 @@ app.post('/api/qr/:identifier', publicReadLimiter, [
   }
 });
 
+// Send QR code page link to card owner's email
+app.post('/api/qr/:slug/email', requireAuth, apiLimiter, csrfProtection, async (req, res, next) => {
+  const { slug } = req.params;
+  try {
+    const card = await new Promise((resolve, reject) =>
+      db.get(
+        'SELECT c.slug, c.data, u.email FROM cards c JOIN users u ON c.user_id = u.id WHERE c.slug = ? AND c.user_id = ?',
+        [slug, req.user.id],
+        (err, row) => err ? reject(err) : resolve(row)
+      )
+    );
+    if (!card) return res.status(404).json({ error: 'errors.cardNotFound' });
+
+    const qrPageUrl = `${req.protocol}://${req.get('host')}/qr/${slug}`;
+    const data = typeof card.data === 'string' ? JSON.parse(card.data) : card.data;
+    const name = [data?.personal?.firstName, data?.personal?.lastName].filter(Boolean).join(' ') || slug;
+
+    if (!emailTransporter) return res.status(503).json({ error: 'Email not configured' });
+
+    await emailTransporter.sendMail({
+      from: SMTP_FROM,
+      to: card.email,
+      subject: `Your QR code — ${name}`,
+      html: `<p>Hi ${name},</p>
+             <p>Here is the link to your QR code page. Open it on any device and show it to let others scan your digital card:</p>
+             <p><a href="${qrPageUrl}" style="background:#4f46e5;color:#fff;padding:12px 24px;border-radius:24px;text-decoration:none;font-weight:bold;display:inline-block">Open My QR Code</a></p>
+             <p>Tip: on your phone, open this link in your browser and tap <strong>"Add to Home Screen"</strong> to save it as a shortcut.</p>
+             <p><a href="${qrPageUrl}">${qrPageUrl}</a></p>`,
+      text: `Your QR code page:\n${qrPageUrl}\n\nTip: open on your phone and add to Home Screen for quick access.`
+    });
+    res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
 // --- PLATFORM ADMIN ENDPOINTS ---
 
 // GET all organisations (platform admin only)
